@@ -1,9 +1,25 @@
 import React, { useState } from 'react';
 import { Upload, Trash2, Plus, Clock, MapPin, Check } from 'lucide-react';
-import { parseTimetableImage } from '../services/visionTimetableParser';
 import { parseTimetableWithGeminiVisionApi } from '../services/apiClient';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+// Downscale photos so uploads stay well under the serverless body limit (~4.5 MB).
+function downscaleImage(dataUrl, maxSide = 1600, quality = 0.85) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
 
 export function TimetableImporter({ 
   fixedSchedule = [], 
@@ -14,6 +30,7 @@ export function TimetableImporter({
 }) {
   const [isScanning, setIsScanning] = useState(false);
   const [uploadDone, setUploadDone] = useState(false);
+  const [scanError, setScanError] = useState('');
   const [showManual, setShowManual] = useState(false);
 
   const [title, setTitle] = useState('');
@@ -31,28 +48,27 @@ export function TimetableImporter({
     reader.onload = async (ev) => {
       setIsScanning(true);
       setUploadDone(false);
+      setScanError('');
       try {
-        // Try live Gemini Vision API
-        let events = null;
-        try {
-          const res = await parseTimetableWithGeminiVisionApi(ev.target.result);
-          if (res?.events && res.events.length > 0) {
-            events = res.events;
-          }
-        } catch {
-          // fallback to local parser
+        const image = await downscaleImage(ev.target.result);
+        const res = await parseTimetableWithGeminiVisionApi(image);
+        if (res?.events && res.events.length > 0) {
+          onBatchAdd(res.events);
+          setUploadDone(true);
+        } else {
+          setScanError("Couldn't find any classes in that image. Try a clearer photo, or add classes manually below.");
         }
-
-        if (!events) {
-          events = await parseTimetableImage(ev.target.result);
-        }
-
-        onBatchAdd(events);
-        setUploadDone(true);
       } catch (err) {
-        console.error('OCR Error', err);
+        // Never invent classes: tell the student and offer manual entry instead.
+        setScanError(
+          err.status === 401
+            ? 'Sign in to use photo import, or add classes manually below.'
+            : 'Photo import is unavailable right now (AI offline). Add your classes manually below — it takes a minute.'
+        );
+        setShowManual(true);
       } finally {
         setIsScanning(false);
+        e.target.value = '';
       }
     };
     reader.readAsDataURL(file);
@@ -122,16 +138,19 @@ export function TimetableImporter({
         </div>
 
         <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.25rem' }}>
-          {isScanning ? 'Extracting Schedule via Neural OCR...' : 'Click or Drop Timetable Image Here'}
+          {isScanning ? 'Reading your timetable…' : 'Click or Drop Timetable Image Here'}
         </h3>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>
-          Supports screenshots, syllabus photos, or PDFs. Automatic gap and lecture extraction.
+          Screenshots or photos of your class schedule. Check the extracted classes below and fix anything that's off.
         </p>
 
         {uploadDone && (
           <div style={{ marginTop: '0.75rem', color: '#ffffff', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>
-            <Check size={14} /> Schedule parsed and synced to database!
+            <Check size={14} /> Classes added — please double-check times below.
           </div>
+        )}
+        {scanError && (
+          <div style={{ marginTop: '0.75rem', color: '#fde68a', fontSize: '0.8rem' }}>{scanError}</div>
         )}
       </div>
 

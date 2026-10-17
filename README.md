@@ -62,6 +62,8 @@ npm run dev
 
 Open your browser at `http://localhost:5173/`.
 
+To put it online with student accounts (free Supabase + Vercel), follow [DEPLOYMENT.md](DEPLOYMENT.md).
+
 Run the planner engine tests:
 ```bash
 npm test

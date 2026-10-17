@@ -12,6 +12,8 @@ import { GuideTourModal } from './components/GuideTourModal';
 import { DailyCheckInModal } from './components/DailyCheckInModal';
 import { BattlePlanWizard } from './components/BattlePlanWizard';
 import { EndOfDayModal } from './components/EndOfDayModal';
+import { AuthModal } from './components/AuthModal';
+import { supabase, authEnabled } from './services/supabaseClient';
 
 import {
   checkBackendStatus,
@@ -33,6 +35,7 @@ import {
   fetchCheckinsApi,
   saveCheckinApi,
   fetchSessionLogsApi,
+  createBatchFixedEventsApi,
 } from './services/apiClient';
 
 import { buildStudyPlan, summarizePlanForAI, toDateKey, focusCapacityUntil, formatMinutesToTime } from './services/plannerEngine';
@@ -66,7 +69,12 @@ function usePersistentState(key, fallback) {
 export function App() {
   const [activeTab, setActiveTab] = useState('focus'); // focus, backlog, timeline, timetable, analytics, habits
   const [selectedDayIdx, setSelectedDayIdx] = useState(0);
-  const [backendOnline, setBackendOnline] = useState(false);
+  const [serverMode, setServerMode] = useState(null); // null (offline) | 'sqlite' | 'supabase'
+  const [authUser, setAuthUser] = useState(null);
+  const [authReady, setAuthReady] = useState(!authEnabled);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  // Server sync is on for local SQLite, or for Supabase once the student is signed in.
+  const backendOnline = serverMode === 'sqlite' || (serverMode === 'supabase' && Boolean(authUser));
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isCheckInOpen, setIsCheckInOpen] = useState(false);
@@ -114,13 +122,77 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [todayKey]);
 
-  // Initial load & bidirectional sync with the SQLite backend
+  // Track the signed-in student (Supabase auth).
   useEffect(() => {
+    if (!supabase) return undefined;
+    supabase.auth.getSession().then(({ data }) => {
+      setAuthUser(data.session?.user || null);
+      setAuthReady(true);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthUser(session?.user || null);
+      if (session?.user) setIsAuthOpen(false);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  // Which backend (if any) is reachable?
+  useEffect(() => {
+    checkBackendStatus().then((status) => setServerMode(status.status === 'online' ? status.mode || 'sqlite' : null));
+  }, []);
+
+  // Wipe this browser's copy of the plan (used on sign-out and when another account signs in).
+  const resetLocalData = () => {
+    setTasks([]);
+    setFixedSchedule([]);
+    setUserHabits(INITIAL_USER_HABITS);
+    setReviewHistory([]);
+    setLearnedFatigueHours([]);
+    setLearnedBufferInflation(1.0);
+    setStreak(null);
+    setDoneSessionIds([]);
+    setDayContexts({});
+    setSessionLogs([]);
+    setParkingLot([]);
+    setAiTaskCoaching({});
+    setPreferredSessionId(null);
+  };
+
+  const handleSignOut = async () => {
+    if (supabase) await supabase.auth.signOut();
+    resetLocalData();
+    localStorage.removeItem('cf_owner');
+  };
+
+  // Load & sync with the backend whenever sync becomes available (or the account changes).
+  useEffect(() => {
+    if (!backendOnline || !authReady) return;
     async function loadDataFromDb() {
       try {
-        const status = await checkBackendStatus();
-        if (status.status !== 'online') return;
-        setBackendOnline(true);
+        // Accounts: this browser's local data belongs to whoever created it.
+        if (serverMode === 'supabase') {
+          const owner = localStorage.getItem('cf_owner');
+          if (owner && owner !== authUser.id) {
+            resetLocalData(); // a different student used this browser before
+          } else if (!owner) {
+            // First sign-in on this device: upload anything made before signing in, once.
+            const read = (k, fb) => {
+              try {
+                return JSON.parse(localStorage.getItem(k)) ?? fb;
+              } catch {
+                return fb;
+              }
+            };
+            const localTasks = read('cf_tasks', []);
+            const localEvents = read('cf_fixed_schedule', []);
+            const localCheckins = read('cf_checkins', {});
+            if (localTasks.length) await createBatchTasksApi(localTasks).catch(console.error);
+            if (localEvents.length) await createBatchFixedEventsApi(localEvents).catch(console.error);
+            if (localStorage.getItem('cf_onboarding_completed')) await saveUserHabitsApi(read('cf_user_habits', INITIAL_USER_HABITS)).catch(console.error);
+            for (const [dateKey, c] of Object.entries(localCheckins)) await saveCheckinApi(dateKey, c).catch(console.error);
+          }
+          localStorage.setItem('cf_owner', authUser.id);
+        }
 
         const [habitsData, fixedEvents, dbTasks, reviewsData, checkins, logsData] = await Promise.all([
           fetchUserHabitsApi().catch(() => null),
@@ -131,25 +203,29 @@ export function App() {
           fetchSessionLogsApi().catch(() => null),
         ]);
 
-        if (habitsData && habitsData.habits && habitsData.habits.length > 0) {
+        // Signed-in (cloud) accounts: the server is the source of truth, even when empty.
+        const cloud = serverMode === 'supabase';
+
+        if (habitsData && (cloud || (habitsData.habits && habitsData.habits.length > 0))) {
           setUserHabits((local) => ({ ...local, ...habitsData }));
           if (habitsData.learnedFatigueHours) setLearnedFatigueHours(habitsData.learnedFatigueHours);
+          if (cloud && habitsData.habits?.length) localStorage.setItem('cf_onboarding_completed', 'true');
         }
-        if (fixedEvents && fixedEvents.length > 0) setFixedSchedule(fixedEvents);
+        if (fixedEvents && (cloud || fixedEvents.length > 0)) setFixedSchedule(fixedEvents);
 
-        if (dbTasks && dbTasks.length > 0) {
+        if (dbTasks && (cloud || dbTasks.length > 0)) {
           setTasks(dbTasks);
-        } else {
+        } else if (!cloud) {
           const localSavedTasks = JSON.parse(localStorage.getItem('cf_tasks') || '[]');
           if (localSavedTasks.length > 0) await createBatchTasksApi(localSavedTasks).catch(console.error);
         }
 
-        if (reviewsData && reviewsData.reviews && reviewsData.reviews.length > 0) {
-          setReviewHistory(reviewsData.reviews);
+        if (reviewsData && (cloud || (reviewsData.reviews && reviewsData.reviews.length > 0))) {
+          setReviewHistory(reviewsData.reviews || []);
           if (reviewsData.learnedBufferInflation) setLearnedBufferInflation(reviewsData.learnedBufferInflation);
         }
-        if (checkins && Object.keys(checkins).length > 0) {
-          setDayContexts((local) => ({ ...checkins, ...local }));
+        if (checkins && (cloud || Object.keys(checkins).length > 0)) {
+          setDayContexts((local) => (cloud ? checkins : { ...checkins, ...local }));
         }
         if (logsData?.logs?.length) {
           setSessionLogs((local) =>
@@ -164,7 +240,7 @@ export function App() {
     }
     loadDataFromDb();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [backendOnline, authReady, authUser?.id]);
 
   const planParams = useMemo(
     () => ({
@@ -333,9 +409,7 @@ export function App() {
 
   const handleBatchAddFixedEvents = async (events) => {
     setFixedSchedule((prev) => [...prev, ...events]);
-    if (backendOnline) {
-      for (const ev of events) await createFixedEventApi(ev).catch(console.error);
-    }
+    if (backendOnline) await createBatchFixedEventsApi(events).catch(console.error);
   };
 
   const handleUpdateHabits = async (newHabits) => {
@@ -519,6 +593,19 @@ export function App() {
         taskCount={tasks.length}
         onOpenOnboarding={() => setIsOnboardingOpen(true)}
         onOpenGuide={() => setIsGuideOpen(true)}
+        storageLabel={
+          serverMode === 'supabase'
+            ? authUser
+              ? 'Synced to your account'
+              : 'Saved on this device · sign in to sync'
+            : serverMode === 'sqlite'
+              ? 'Local database'
+              : 'Saved on this device'
+        }
+        authEnabled={authEnabled && serverMode === 'supabase'}
+        userEmail={authUser?.email}
+        onSignIn={() => setIsAuthOpen(true)}
+        onSignOut={handleSignOut}
       />
 
       <main className="main-content">
@@ -624,6 +711,8 @@ export function App() {
       )}
 
       <BattlePlanWizard isOpen={isBattlePlanOpen} onClose={() => setIsBattlePlanOpen(false)} onAddTasks={handleAddTasks} getCapacityUntil={getCapacityUntil} />
+
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
 
       <EndOfDayModal isOpen={isEndOfDayOpen} onClose={() => setIsEndOfDayOpen(false)} todayStats={todayStats} tomorrow={plan.days[1]} parkingLot={parkingLot} />
 

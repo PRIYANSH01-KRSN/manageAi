@@ -6,7 +6,8 @@ import {
   Brain, 
   Sliders, 
   Flame,
-  Database
+  LogIn,
+  LogOut
 } from 'lucide-react';
 
 export function Navbar({ 
@@ -16,7 +17,12 @@ export function Navbar({
   backendOnline,
   taskCount = 0,
   onOpenOnboarding,
-  onOpenGuide
+  onOpenGuide,
+  storageLabel,
+  authEnabled,
+  userEmail,
+  onSignIn,
+  onSignOut
 }) {
   return (
     <header className="app-header">
@@ -24,7 +30,7 @@ export function Navbar({
         <h1 className="brand-title">Chronos</h1>
         <div className="db-badge" title="Persistent SQLite Database">
           <span className="db-indicator" style={{ background: backendOnline ? '#ffffff' : '#71717a' }} />
-          <span>{backendOnline ? 'SQLite DB (Port 3001)' : 'Persistent Storage Active'}</span>
+          <span>{storageLabel || (backendOnline ? 'Synced' : 'Saved on this device')}</span>
         </div>
       </div>
 
@@ -101,6 +107,18 @@ export function Navbar({
           <Sliders size={13} />
           <span>Routine Setup</span>
         </button>
+
+        {authEnabled && (userEmail ? (
+          <button onClick={onSignOut} className="btn-secondary" style={{ padding: '0.35rem 0.7rem', fontSize: '0.78rem' }} title={`Signed in as ${userEmail} — click to sign out`} id="sign-out-btn">
+            <LogOut size={13} />
+            <span style={{ maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userEmail}</span>
+          </button>
+        ) : (
+          <button onClick={onSignIn} className="btn-primary" style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem' }} id="sign-in-btn">
+            <LogIn size={13} />
+            <span>Sign in</span>
+          </button>
+        ))}
 
         <div className="streak-pill">
           <Flame size={14} />

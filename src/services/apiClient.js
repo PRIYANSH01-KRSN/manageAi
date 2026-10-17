@@ -1,197 +1,84 @@
-// Real SQLite Backend & Gemini AI API Client
+// API client: SQLite (local) or Supabase-backed (production) Express API.
+// Attaches the signed-in student's access token to every request.
+import { getAccessToken } from './supabaseClient';
+
 const API_BASE = '/api';
+
+export class ApiError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.status = status;
+  }
+}
+
+async function apiFetch(path, { method = 'GET', body } = {}) {
+  const headers = {};
+  const token = await getAccessToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  const text = await res.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = null;
+  }
+  if (!res.ok) throw new ApiError(data?.error || text || `Request failed (${res.status})`, res.status);
+  return data;
+}
 
 export async function checkBackendStatus() {
   try {
-    const res = await fetch(`${API_BASE}/status`);
-    if (!res.ok) throw new Error('Backend offline');
-    return await res.json();
+    return await apiFetch('/status');
   } catch (err) {
-    console.warn('API error, falling back:', err.message);
-    return { status: 'offline', db: 'disconnected' };
+    console.warn('API offline, using local storage:', err.message);
+    return { status: 'offline' };
   }
 }
 
-// Gemini Backlog Decomposer (context-aware: today's date, horizon, student profile)
-export async function crunchBacklogWithGeminiApi(prompt, { horizonDays, today, profile } = {}) {
-  const res = await fetch(`${API_BASE}/ai/crunch`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, horizonDays, today, profile }),
-  });
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(errorText);
-  }
-  return await res.json();
-}
+export const fetchMeApi = () => apiFetch('/me');
 
-// Live Gemini 3.8 Flash Vision Timetable Parser
-export async function parseTimetableWithGeminiVisionApi(imageBase64) {
-  const res = await fetch(`${API_BASE}/ai/parse-timetable`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imageBase64 }),
-  });
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(errorText);
-  }
-  return await res.json();
-}
+// AI
+export const crunchBacklogWithGeminiApi = (prompt, { horizonDays, today, profile } = {}) =>
+  apiFetch('/ai/crunch', { method: 'POST', body: { prompt, horizonDays, today, profile } });
+export const parseTimetableWithGeminiVisionApi = (imageBase64) => apiFetch('/ai/parse-timetable', { method: 'POST', body: { imageBase64 } });
+export const fetchAICoachApi = (summary) => apiFetch('/ai/coach', { method: 'POST', body: { summary } });
+export const fetchAITaskCoachApi = (task, minutes, context) => apiFetch('/ai/task-coach', { method: 'POST', body: { task, minutes, context } });
 
-// Gemini Study Coach: personalised advice on the computed plan
-export async function fetchAICoachApi(summary) {
-  const res = await fetch(`${API_BASE}/ai/coach`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ summary }),
-  });
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(errorText);
-  }
-  return await res.json();
-}
+// Check-ins & session logs
+export const fetchCheckinsApi = () => apiFetch('/checkins');
+export const saveCheckinApi = (dateKey, checkin) => apiFetch(`/checkins/${dateKey}`, { method: 'PUT', body: checkin });
+export const fetchSessionLogsApi = () => apiFetch('/session-logs');
 
-// Gemini Task Coach: content-specific "how to do this session"
-export async function fetchAITaskCoachApi(task, minutes, context) {
-  const res = await fetch(`${API_BASE}/ai/task-coach`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ task, minutes, context }),
-  });
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(errorText);
-  }
-  return await res.json();
-}
-
-export async function fetchCheckinsApi() {
-  const res = await fetch(`${API_BASE}/checkins`);
-  if (!res.ok) throw new Error('Failed to fetch check-ins');
-  return await res.json();
-}
-
-export async function saveCheckinApi(dateKey, checkin) {
-  const res = await fetch(`${API_BASE}/checkins/${dateKey}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(checkin),
-  });
-  return await res.json();
-}
-
-export async function fetchSessionLogsApi() {
-  const res = await fetch(`${API_BASE}/session-logs`);
-  if (!res.ok) throw new Error('Failed to fetch session logs');
-  return await res.json();
-}
-
+// Profile / routine
 export async function fetchUserHabitsApi() {
-  const res = await fetch(`${API_BASE}/user`);
-  if (!res.ok) throw new Error('Failed to fetch user habits');
-  const data = await res.json();
+  const data = await apiFetch('/user');
   return data.userHabits;
 }
+export const saveUserHabitsApi = (habitsData) => apiFetch('/user', { method: 'PUT', body: habitsData });
 
-export async function saveUserHabitsApi(habitsData) {
-  const res = await fetch(`${API_BASE}/user`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(habitsData),
-  });
-  return await res.json();
-}
+// Fixed events
+export const fetchFixedEventsApi = () => apiFetch('/fixed-events');
+export const createFixedEventApi = (eventData) => apiFetch('/fixed-events', { method: 'POST', body: eventData });
+export const createBatchFixedEventsApi = (events) => apiFetch('/fixed-events/batch', { method: 'POST', body: { events } });
+export const deleteFixedEventApi = (id) => apiFetch(`/fixed-events/${encodeURIComponent(id)}`, { method: 'DELETE' });
+export const toggleGapStudyApi = (id) => apiFetch(`/fixed-events/${encodeURIComponent(id)}/toggle-gap`, { method: 'PATCH' });
 
-export async function fetchFixedEventsApi() {
-  const res = await fetch(`${API_BASE}/fixed-events`);
-  if (!res.ok) throw new Error('Failed to fetch fixed events');
-  return await res.json();
-}
+// Tasks
+export const fetchTasksApi = () => apiFetch('/tasks');
+export const createTaskApi = (taskData) => apiFetch('/tasks', { method: 'POST', body: taskData });
+export const createBatchTasksApi = (tasks) => apiFetch('/tasks/batch', { method: 'POST', body: { tasks } });
+export const updateTaskProgressApi = (id, minutes) => apiFetch(`/tasks/${encodeURIComponent(id)}/progress`, { method: 'PATCH', body: { minutes } });
+export const deleteTaskApi = (id) => apiFetch(`/tasks/${encodeURIComponent(id)}`, { method: 'DELETE' });
 
-export async function createFixedEventApi(eventData) {
-  const res = await fetch(`${API_BASE}/fixed-events`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(eventData),
-  });
-  return await res.json();
-}
+// Reviews
+export const fetchReviewsApi = () => apiFetch('/reviews');
+export const submitReviewApi = (reviewData) => apiFetch('/reviews', { method: 'POST', body: reviewData });
 
-export async function deleteFixedEventApi(id) {
-  const res = await fetch(`${API_BASE}/fixed-events/${id}`, {
-    method: 'DELETE',
-  });
-  return await res.json();
-}
-
-export async function toggleGapStudyApi(id) {
-  const res = await fetch(`${API_BASE}/fixed-events/${id}/toggle-gap`, {
-    method: 'PATCH',
-  });
-  return await res.json();
-}
-
-export async function fetchTasksApi() {
-  const res = await fetch(`${API_BASE}/tasks`);
-  if (!res.ok) throw new Error('Failed to fetch tasks');
-  return await res.json();
-}
-
-export async function createTaskApi(taskData) {
-  const res = await fetch(`${API_BASE}/tasks`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(taskData),
-  });
-  return await res.json();
-}
-
-export async function createBatchTasksApi(tasks) {
-  const res = await fetch(`${API_BASE}/tasks/batch`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tasks }),
-  });
-  return await res.json();
-}
-
-export async function updateTaskProgressApi(id, minutes) {
-  const res = await fetch(`${API_BASE}/tasks/${id}/progress`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ minutes }),
-  });
-  return await res.json();
-}
-
-export async function deleteTaskApi(id) {
-  const res = await fetch(`${API_BASE}/tasks/${id}`, {
-    method: 'DELETE',
-  });
-  return await res.json();
-}
-
-export async function fetchReviewsApi() {
-  const res = await fetch(`${API_BASE}/reviews`);
-  if (!res.ok) throw new Error('Failed to fetch reviews');
-  return await res.json();
-}
-
-export async function submitReviewApi(reviewData) {
-  const res = await fetch(`${API_BASE}/reviews`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(reviewData),
-  });
-  return await res.json();
-}
-
-export async function resetDatabaseApi() {
-  const res = await fetch(`${API_BASE}/reset-data`, {
-    method: 'POST',
-  });
-  return await res.json();
-}
+export const resetDatabaseApi = () => apiFetch('/reset-data', { method: 'POST' });
