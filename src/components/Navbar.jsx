@@ -15,7 +15,8 @@ export function Navbar({
   streakCount, 
   backendOnline,
   taskCount = 0,
-  onOpenOnboarding
+  onOpenOnboarding,
+  onOpenGuide
 }) {
   return (
     <header className="app-header">
@@ -78,12 +79,22 @@ export function Navbar({
         </button>
       </nav>
 
-      {/* Right Side Streak & Routine Setup */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+      {/* Right Side Streak, Guide & Routine Setup */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <button
+          onClick={onOpenGuide}
+          className="btn-secondary"
+          style={{ padding: '0.35rem 0.7rem', fontSize: '0.78rem' }}
+          title="Open First-Time User 5-Step Guide"
+          id="guide-tour-nav-btn"
+        >
+          <span>Guide</span>
+        </button>
+
         <button
           onClick={onOpenOnboarding}
           className="btn-secondary"
-          style={{ padding: '0.35rem 0.75rem', fontSize: '0.78rem' }}
+          style={{ padding: '0.35rem 0.7rem', fontSize: '0.78rem' }}
           title="Analyze and calibrate daily routine"
           id="routine-setup-nav-btn"
         >

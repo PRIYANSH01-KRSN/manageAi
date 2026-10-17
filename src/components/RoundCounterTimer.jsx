@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, RotateCcw, Check, X, Volume2, VolumeX, Headphones, CheckCircle2 } from 'lucide-react';
+import { Play, Pause, RotateCcw, Check, X, Volume2, VolumeX, Headphones, CheckCircle2, Sliders, Sparkles, Clock, ArrowRight } from 'lucide-react';
 import { playAmbientSound, stopAmbientSound, playCompletionChime } from '../utils/audioSynthesizer';
 import { generateExecutionBlueprint } from '../services/blueprintGenerator';
 
@@ -7,7 +7,10 @@ export function RoundCounterTimer({
   currentBlock, 
   onMarkDone, 
   onMarkNotDone,
-  onSwapLighter
+  onSwapLighter,
+  onNavigateTab,
+  onOpenGuide,
+  onOpenRoutineSetup
 }) {
   const initialMinutes = currentBlock?.rawDuration || 25;
   const initialSeconds = initialMinutes * 60;
@@ -53,16 +56,102 @@ export function RoundCounterTimer({
 
   if (!currentBlock) {
     return (
-      <div className="mono-card" style={{ textAlign: 'center', padding: '3.5rem 2rem', marginBottom: '2rem' }}>
-        <div style={{ display: 'inline-flex', padding: '1rem', borderRadius: '50%', border: '1px solid var(--border-strong)', marginBottom: '1rem' }}>
-          <CheckCircle2 size={32} color="#ffffff" />
+      <div className="mono-card" style={{ padding: '2.5rem', marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '1.25rem', marginBottom: '1.5rem' }}>
+          <div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: '#ffffff', fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
+              ✦ First-Time User Getting Started Guide
+            </div>
+            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
+              Welcome to ChronosFlow
+            </h2>
+          </div>
+
+          <button
+            className="btn-secondary"
+            onClick={onOpenGuide}
+            id="view-guide-tour-btn"
+          >
+            <span>Open 5-Step Tour</span>
+            <ArrowRight size={14} />
+          </button>
         </div>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.4rem', color: '#ffffff' }}>
-          Schedule Completed
-        </h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', maxWidth: '420px', margin: '0 auto' }}>
-          No active blocks pending right now. Add a task to your backlog or import a timetable below.
+
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.75rem', maxWidth: '620px' }}>
+          ChronosFlow uses a hybrid cognitive scheduler. Follow these 3 simple steps to generate your first hyper-realistic plan:
         </p>
+
+        {/* 3 Actionable Guiding Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+          {/* Step 1 */}
+          <div style={{ background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '1.25rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <span className="badge badge-highlight">Step 01</span>
+                <Sliders size={16} color="var(--text-muted)" />
+              </div>
+              <strong style={{ fontSize: '0.925rem', color: '#ffffff', display: 'block', marginBottom: '0.35rem' }}>
+                Calibrate Your Routine
+              </strong>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                Configure wake/sleep boundaries, biological peak hours, and non-negotiable meal/exercise breaks.
+              </p>
+            </div>
+            <button
+              onClick={onOpenRoutineSetup}
+              className="btn-secondary"
+              style={{ marginTop: '1rem', width: '100%', fontSize: '0.78rem' }}
+            >
+              <span>Setup Daily Rhythms</span>
+            </button>
+          </div>
+
+          {/* Step 2 */}
+          <div style={{ background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '1.25rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <span className="badge badge-highlight">Step 02</span>
+                <Sparkles size={16} color="var(--text-muted)" />
+              </div>
+              <strong style={{ fontSize: '0.925rem', color: '#ffffff', display: 'block', marginBottom: '0.35rem' }}>
+                Add Backlog or AI Crunch
+              </strong>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                Add tasks with time sliders up to 4 hours or paste your syllabus for Gemini 3.8 Flash to structure into Eisenhower quadrants.
+              </p>
+            </div>
+            <button
+              onClick={() => onNavigateTab && onNavigateTab('backlog')}
+              className="btn-primary"
+              style={{ marginTop: '1rem', width: '100%', fontSize: '0.78rem' }}
+            >
+              <span>Go to Backlog & Planner</span>
+            </button>
+          </div>
+
+          {/* Step 3 */}
+          <div style={{ background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '1.25rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <span className="badge">Optional</span>
+                <Clock size={16} color="var(--text-muted)" />
+              </div>
+              <strong style={{ fontSize: '0.925rem', color: '#ffffff', display: 'block', marginBottom: '0.35rem' }}>
+                Import Timetable Image
+              </strong>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                Drop a photo of your class schedule to extract lectures and protect mandatory 20m post-class rest buffers.
+              </p>
+            </div>
+            <button
+              onClick={() => onNavigateTab && onNavigateTab('timetable')}
+              className="btn-secondary"
+              style={{ marginTop: '1rem', width: '100%', fontSize: '0.78rem' }}
+            >
+              <span>Import Timetable OCR</span>
+            </button>
+          </div>
+        </div>
       </div>
     );
   }

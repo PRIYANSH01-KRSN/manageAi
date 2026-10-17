@@ -8,6 +8,7 @@ import { AIInsightsPanel } from './components/AIInsightsPanel';
 import { EnergyHabitSettings } from './components/EnergyHabitSettings';
 import { ReviewModal } from './components/ReviewModal';
 import { OnboardingModal } from './components/OnboardingModal';
+import { GuideTourModal } from './components/GuideTourModal';
 
 import { 
   checkBackendStatus, 
@@ -41,6 +42,7 @@ export function App() {
   const [backendOnline, setBackendOnline] = useState(false);
   const [targetDeadlineDays, setTargetDeadlineDays] = useState(3);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
 
   // Core Data States (Synced with SQLite)
   const [userHabits, setUserHabits] = useState(INITIAL_USER_HABITS);
@@ -338,6 +340,7 @@ export function App() {
         backendOnline={backendOnline}
         taskCount={tasks.length}
         onOpenOnboarding={() => setIsOnboardingOpen(true)}
+        onOpenGuide={() => setIsGuideOpen(true)}
       />
 
       <main className="main-content">
@@ -349,6 +352,9 @@ export function App() {
               onMarkDone={handleMarkDone}
               onMarkNotDone={handleMarkNotDone}
               onSwapLighter={handleSwapLighter}
+              onNavigateTab={setActiveTab}
+              onOpenGuide={() => setIsGuideOpen(true)}
+              onOpenRoutineSetup={() => setIsOnboardingOpen(true)}
             />
 
             {/* Structured master schedule underneath */}
@@ -421,6 +427,14 @@ export function App() {
         isOpen={isOnboardingOpen}
         onClose={() => setIsOnboardingOpen(false)}
         onSaveRoutine={handleSaveRoutine}
+      />
+
+      {/* Interactive 5-Step First Time User Guide */}
+      <GuideTourModal
+        isOpen={isGuideOpen}
+        onClose={() => setIsGuideOpen(false)}
+        onNavigateTab={setActiveTab}
+        onOpenRoutineSetup={() => setIsOnboardingOpen(true)}
       />
 
       {/* Zero-Guilt Stall Review Modal */}
