@@ -239,6 +239,30 @@ export function OnboardingModal({ isOpen, onClose, onSaveRoutine }) {
                 </div>
               ))}
             </div>
+
+            <div style={{ fontSize: '0.8rem', color: '#ffffff', fontWeight: 700, marginBottom: '0.5rem' }}>Preferred study session length</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
+              {[
+                { id: 'pomodoro', title: 'Short sprints', desc: '25–30 min blocks, frequent breaks' },
+                { id: 'deep', title: 'Deep work', desc: '45–50 min blocks, longer breaks' },
+              ].map((o) => (
+                <div
+                  key={o.id}
+                  onClick={() => setSessionStyle(o.id)}
+                  style={{
+                    padding: '0.85rem',
+                    borderRadius: 'var(--radius-md)',
+                    background: sessionStyle === o.id ? '#ffffff' : 'var(--bg-card-subtle)',
+                    color: sessionStyle === o.id ? '#000000' : '#ffffff',
+                    border: sessionStyle === o.id ? '1px solid #ffffff' : '1px solid var(--border-subtle)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ fontWeight: 800, fontSize: '0.88rem' }}>{o.title}</div>
+                  <div style={{ fontSize: '0.7rem', color: sessionStyle === o.id ? '#3f3f46' : 'var(--text-muted)' }}>{o.desc}</div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

@@ -12,12 +12,12 @@ export async function checkBackendStatus() {
   }
 }
 
-// Live Gemini 3.8 Flash Backlog Cruncher
-export async function crunchBacklogWithGeminiApi(prompt) {
+// Gemini Backlog Decomposer (context-aware: today's date, horizon, student profile)
+export async function crunchBacklogWithGeminiApi(prompt, { horizonDays, today, profile } = {}) {
   const res = await fetch(`${API_BASE}/ai/crunch`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify({ prompt, horizonDays, today, profile }),
   });
   if (!res.ok) {
     const errorText = await res.text();
@@ -32,6 +32,20 @@ export async function parseTimetableWithGeminiVisionApi(imageBase64) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ imageBase64 }),
+  });
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(errorText);
+  }
+  return await res.json();
+}
+
+// Gemini Study Coach: personalised advice on the computed plan
+export async function fetchAICoachApi(summary) {
+  const res = await fetch(`${API_BASE}/ai/coach`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ summary }),
   });
   if (!res.ok) {
     const errorText = await res.text();
@@ -105,6 +119,15 @@ export async function createBatchTasksApi(tasks) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ tasks }),
+  });
+  return await res.json();
+}
+
+export async function updateTaskProgressApi(id, minutes) {
+  const res = await fetch(`${API_BASE}/tasks/${id}/progress`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ minutes }),
   });
   return await res.json();
 }

@@ -91,6 +91,19 @@ export function EnergyHabitSettings({ userHabits = {}, onUpdateHabits }) {
           </label>
           <input type="range" min="1.0" max="1.5" step="0.05" value={userHabits.distractionFactor || 1.25} onChange={(e) => handleBufferChange(e.target.value)} style={{ width: '100%', accentColor: '#ffffff' }} />
         </div>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>
+            Daily Focus Cap: {((userHabits.dailyFocusCapMinutes || 300) / 60).toFixed(1)}h of real study
+          </label>
+          <input type="range" min="60" max="540" step="30" value={userHabits.dailyFocusCapMinutes || 300} onChange={(e) => onUpdateHabits({ ...userHabits, dailyFocusCapMinutes: Number(e.target.value) })} style={{ width: '100%', accentColor: '#ffffff' }} />
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Session Style</label>
+          <select className="input-field" value={userHabits.sessionStyle || 'pomodoro'} onChange={(e) => onUpdateHabits({ ...userHabits, sessionStyle: e.target.value })}>
+            <option value="pomodoro">Short sprints (25–30 min)</option>
+            <option value="deep">Deep work (45–50 min)</option>
+          </select>
+        </div>
       </div>
 
       {/* Blocked Daily Habits */}

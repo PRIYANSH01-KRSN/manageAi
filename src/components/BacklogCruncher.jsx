@@ -8,7 +8,9 @@ export function BacklogCruncher({
   onDeleteTask, 
   onGenerateBatchAI,
   targetDeadlineDays = 3,
-  onUpdateTargetDeadlineDays
+  onUpdateTargetDeadlineDays,
+  feasibility,
+  unscheduled = []
 }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showBatchModal, setShowBatchModal] = useState(false);
@@ -19,30 +21,41 @@ export function BacklogCruncher({
   const [isUncertain, setIsUncertain] = useState(false);
   const [materials, setMaterials] = useState('');
   const [roadblock, setRoadblock] = useState('');
+  const [subject, setSubject] = useState('');
+  const [deadline, setDeadline] = useState('');
+  const [difficulty, setDifficulty] = useState(3);
+  const [taskType, setTaskType] = useState('learn');
 
   const [batchText, setBatchText] = useState('4 chapters of Microeconomics exam in 3 days; need to master Elasticity and Cost functions');
 
-  // Workload feasibility calculations
-  const totalMinutes = tasks.reduce((acc, t) => acc + (t.estimatedMinutes || 45), 0);
-  const totalHours = (totalMinutes / 60).toFixed(1);
-  const hoursPerDay = targetDeadlineDays > 0 ? (totalMinutes / 60 / targetDeadlineDays).toFixed(1) : totalHours;
-  
-  // Normal healthy daytime deep focus capacity is ~4.5 - 5.0 hours/day
-  const isHighCrunch = Number(hoursPerDay) > 4.5;
-  const isExtremeCrunch = Number(hoursPerDay) > 7.0;
+  // Feasibility comes from the actual plan (real free time after classes, habits and sleep),
+  // not a naive hours ÷ days estimate.
+  const remainingMinutes = tasks.reduce((acc, t) => acc + Math.max(0, (t.estimatedMinutes || 45) - (t.completedMinutes || 0)), 0);
+  const totalHours = (remainingMinutes / 60).toFixed(1);
+  const hoursPerDay = feasibility
+    ? (feasibility.avgDailyFocusMinutes / 60).toFixed(1)
+    : (remainingMinutes / 60 / Math.max(1, targetDeadlineDays)).toFixed(1);
+  const isExtremeCrunch = feasibility?.status === 'OVERLOADED';
+  const isHighCrunch = feasibility?.status === 'TIGHT';
 
   const handleCreate = (e) => {
     e.preventDefault();
     if (!title.trim()) return;
 
-    const finalMinutes = isUncertain ? 45 : Number(estimatedMinutes) || 45;
+    // Unsure estimates get a generous default and lower confidence so the planner pads them.
+    const finalMinutes = isUncertain ? 60 + difficulty * 15 : Number(estimatedMinutes) || 45;
 
     onAddTask({
       id: `task-${Date.now()}`,
       title: isUncertain ? `${title} (Estimated)` : title,
-      category: 'general',
+      category: ['learn', 'practice', 'revise'].includes(taskType) ? 'academic' : 'general',
+      subject: subject.trim() || undefined,
+      deadline: deadline || undefined,
+      difficulty: Number(difficulty),
+      taskType,
       quadrant,
       estimatedMinutes: finalMinutes,
+      completedMinutes: 0,
       isUncertain,
       confidence: isUncertain ? 2 : 3,
       weightage: 4,
@@ -59,6 +72,7 @@ export function BacklogCruncher({
     setTitle('');
     setMaterials('');
     setRoadblock('');
+    setDeadline('');
     setIsUncertain(false);
     setShowAddForm(false);
   };
@@ -175,21 +189,22 @@ export function BacklogCruncher({
             <>
               <AlertTriangle size={15} style={{ color: '#ef4444', flexShrink: 0 }} />
               <span>
-                <strong>Extreme Crunch Mode:</strong> {hoursPerDay}h/day exceeds normal awake capacity. AI recommends borrowing 1 hour from leisure or waking 45m earlier, and pruning Q4 tasks.
+                <strong>Overloaded:</strong> {((feasibility?.unscheduledMinutes || 0) / 60).toFixed(1)}h won't fit before its deadline within your real free time
+                {unscheduled.length > 0 && <> ({unscheduled.map((u) => u.title).join(', ')})</>}. Prune Q4 work, extend the window, or raise your daily focus cap in Habits — the planner never eats into sleep.
               </span>
             </>
           ) : isHighCrunch ? (
             <>
               <AlertTriangle size={15} style={{ color: '#f59e0b', flexShrink: 0 }} />
               <span>
-                <strong>Tight Timeline:</strong> {hoursPerDay}h/day is intensive. AI will protect high-yield Q1/Q2 tasks first and compress breaks.
+                <strong>Tight Timeline:</strong> this uses over 80% of your free focus time ({((feasibility?.availableMinutes || 0) / 60).toFixed(1)}h available). Q1/Q2 work is placed first; keep your planned breaks.
               </span>
             </>
           ) : (
             <>
               <CheckCircle2 size={15} style={{ color: '#ffffff', flexShrink: 0 }} />
               <span>
-                <strong>Feasible Pace:</strong> {hoursPerDay}h/day fits comfortably into your awake energy slots without touching sleep or meals.
+                <strong>Feasible Pace:</strong> ~{hoursPerDay}h/day of focus fits around your classes, meals and sleep{feasibility ? ` (${((feasibility.availableMinutes || 0) / 60).toFixed(1)}h free in this window)` : ''}.
               </span>
             </>
           )}
@@ -246,7 +261,7 @@ export function BacklogCruncher({
                     max="240" 
                     step="15" 
                     value={estimatedMinutes} 
-                    onChange={(e) => setEstimatedMinutes(e.target.value)} 
+                    onChange={(e) => setEstimatedMinutes(Number(e.target.value))}
                     style={{ width: '100%', accentColor: '#ffffff' }} 
                   />
                   {/* Quick Preset Buttons */}
@@ -276,6 +291,35 @@ export function BacklogCruncher({
                   ⚡ AI will dynamically gauge complexity and slice into 40m atomic chunks.
                 </div>
               )}
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Due / Exam Date (plan finishes a day early)</label>
+              <input type="date" className="input-field" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Subject</label>
+              <input type="text" className="input-field" placeholder="e.g. Physics" value={subject} onChange={(e) => setSubject(e.target.value)} />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Type of Work</label>
+              <select className="input-field" value={taskType} onChange={(e) => setTaskType(e.target.value)}>
+                <option value="learn">Learn new material (gets spaced reviews)</option>
+                <option value="practice">Practice / problem solving</option>
+                <option value="revise">Revision</option>
+                <option value="assignment">Assignment / report</option>
+                <option value="project">Project / build</option>
+                <option value="admin">Admin / quick errand</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
+                Difficulty: <strong>{difficulty}/5</strong> {difficulty >= 4 ? '(placed in peak hours)' : difficulty <= 2 ? '(kept out of peak hours)' : ''}
+              </label>
+              <input type="range" min="1" max="5" step="1" value={difficulty} onChange={(e) => setDifficulty(Number(e.target.value))} style={{ width: '100%', accentColor: '#ffffff' }} />
             </div>
 
             <div>
@@ -351,6 +395,9 @@ export function BacklogCruncher({
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
                           <Clock size={11} /> {t.estimatedMinutes}m {t.estimatedMinutes >= 60 ? `(${(t.estimatedMinutes/60).toFixed(1)}h)` : ''}
+                          {t.completedMinutes > 0 && <span>• {Math.round((t.completedMinutes / t.estimatedMinutes) * 100)}% done</span>}
+                          {t.deadline && <span>• <Calendar size={11} style={{ verticalAlign: '-1px' }} /> {t.deadline}</span>}
+                          {t.subject && <span>• {t.subject}</span>}
                         </div>
                       </div>
 
@@ -378,7 +425,7 @@ export function BacklogCruncher({
               AI Batch Backlog Cruncher
             </h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.825rem', marginBottom: '1.25rem' }}>
-              Enter syllabus volume, target deadline, and subject difficulty. Gemini 3.8 Flash will structure it into prioritized atomic units.
+              Describe the syllabus, exam/deadline date and what feels hard. Gemini splits it into learn → practice → revise units with difficulty, deadlines and subjects, then the planner schedules them around your energy and classes.
             </p>
             <form onSubmit={handleBatchSubmit}>
               <textarea

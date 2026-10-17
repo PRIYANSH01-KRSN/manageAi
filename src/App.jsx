@@ -10,9 +10,9 @@ import { ReviewModal } from './components/ReviewModal';
 import { OnboardingModal } from './components/OnboardingModal';
 import { GuideTourModal } from './components/GuideTourModal';
 
-import { 
-  checkBackendStatus, 
-  fetchUserHabitsApi, 
+import {
+  checkBackendStatus,
+  fetchUserHabitsApi,
   saveUserHabitsApi,
   fetchFixedEventsApi,
   createFixedEventApi,
@@ -24,25 +24,32 @@ import {
   deleteTaskApi,
   fetchReviewsApi,
   submitReviewApi,
-  crunchBacklogWithGeminiApi
+  crunchBacklogWithGeminiApi,
+  fetchAICoachApi
 } from './services/apiClient';
 
-import { generateRealisticSchedule } from './services/schedulerEngine';
-import { 
-  INITIAL_USER_HABITS, 
-  INITIAL_FIXED_SCHEDULE, 
-  INITIAL_BACKLOG_GOALS 
-} from './constants/initialData';
+import { buildStudyPlan, summarizePlanForAI, toDateKey } from './services/plannerEngine';
+import { processSessionReview } from './services/recalibrationService';
+import { INITIAL_USER_HABITS } from './constants/initialData';
 import confetti from 'canvas-confetti';
 import { playCompletionChime } from './utils/audioSynthesizer';
 
 export function App() {
   const [activeTab, setActiveTab] = useState('focus'); // focus, backlog, timeline, timetable, analytics, habits
-  const [activeDay, setActiveDay] = useState(1); // 1 = Monday
+  const [selectedDayIdx, setSelectedDayIdx] = useState(0); // 0 = today within the plan horizon
   const [backendOnline, setBackendOnline] = useState(false);
-  const [targetDeadlineDays, setTargetDeadlineDays] = useState(3);
+  const [targetDeadlineDays, setTargetDeadlineDays] = useState(() => {
+    try {
+      return parseInt(localStorage.getItem('cf_target_deadline'), 10) || 7;
+    } catch {
+      return 7;
+    }
+  });
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [now, setNow] = useState(() => new Date());
+  const [preferredSessionId, setPreferredSessionId] = useState(null);
+  const [aiCoach, setAiCoach] = useState({ loading: false, headline: '', tips: [], error: '' });
 
   // Core Data States (Dual Persistence: localStorage + SQLite Sync)
   const [userHabits, setUserHabits] = useState(() => {
@@ -105,6 +112,15 @@ export function App() {
       return saved ? parseInt(saved, 10) : 0;
     } catch {
       return 0;
+    }
+  });
+
+  // Sessions the student has checked off, keyed as "<sessionId>@<dateKey>"
+  const [doneSessionIds, setDoneSessionIds] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('cf_done_sessions') || '[]');
+    } catch {
+      return [];
     }
   });
 
@@ -176,6 +192,20 @@ export function App() {
     }
   }, [targetDeadlineDays]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem('cf_done_sessions', JSON.stringify(doneSessionIds.slice(-200)));
+    } catch (e) {
+      console.warn('Storage error', e);
+    }
+  }, [doneSessionIds]);
+
+  // Roll the plan forward every minute so missed sessions get re-planned automatically.
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(id);
+  }, []);
+
   // First-time onboarding trigger
   useEffect(() => {
     const done = localStorage.getItem('cf_onboarding_completed');
@@ -234,22 +264,49 @@ export function App() {
     loadDataFromDb();
   }, []);
 
-  // 2. Generate Master Schedule
-  const scheduleResult = useMemo(() => {
-    return generateRealisticSchedule({
-      backlogTasks: tasks,
+  // 2. Generate the multi-day, deadline-aware study plan
+  const plan = useMemo(() => {
+    const raw = buildStudyPlan({
+      tasks,
       userHabits,
       fixedSchedule,
       learnedFatigueHours,
       learnedBufferInflation,
-      activeDay,
+      reviewHistory,
+      horizonDays: targetDeadlineDays,
+      now,
     });
-  }, [tasks, userHabits, fixedSchedule, learnedFatigueHours, learnedBufferInflation, activeDay]);
+    const done = new Set(doneSessionIds);
+    raw.days.forEach((d) =>
+      d.sessions.forEach((s) => {
+        if (done.has(`${s.id}@${s.dateKey}`)) s.status = 'COMPLETED';
+      })
+    );
+    return raw;
+  }, [tasks, userHabits, fixedSchedule, learnedFatigueHours, learnedBufferInflation, reviewHistory, targetDeadlineDays, now, doneSessionIds]);
 
-  // Current actionable focus task
+  // Current actionable focus task: next pending session today (or the one the student picked)
   const currentActionBlock = useMemo(() => {
-    return scheduleResult.scheduledBlocks.find((b) => b.status === 'SCHEDULED') || null;
-  }, [scheduleResult.scheduledBlocks]);
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const todays = (plan.days[0]?.sessions || []).filter((s) => s.status !== 'COMPLETED' && s.endMin > nowMin);
+    return todays.find((s) => s.id === preferredSessionId) || todays[0] || null;
+  }, [plan, now, preferredSessionId]);
+
+  const handleRequestAICoach = async () => {
+    setAiCoach((c) => ({ ...c, loading: true, error: '' }));
+    try {
+      if (!backendOnline) throw new Error('offline');
+      const res = await fetchAICoachApi(summarizePlanForAI(plan, userHabits));
+      setAiCoach({ loading: false, headline: res.headline, tips: res.tips || [], error: '' });
+    } catch {
+      setAiCoach({
+        loading: false,
+        headline: '',
+        tips: [],
+        error: 'AI coach unavailable (backend offline or no GEMINI_API_KEY). Planner insights are shown instead.',
+      });
+    }
+  };
 
   // Task Mutations
   const handleAddTask = async (newTask) => {
@@ -260,7 +317,7 @@ export function App() {
   };
 
   const handleDeleteTask = async (id) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id && !id.startsWith(t.id)));
+    setTasks((prev) => prev.filter((t) => t.id !== id));
     if (backendOnline) {
       await deleteTaskApi(id).catch(console.error);
     }
@@ -269,7 +326,11 @@ export function App() {
   const handleBatchAI = async (promptText) => {
     try {
       if (backendOnline) {
-        const res = await crunchBacklogWithGeminiApi(promptText);
+        const res = await crunchBacklogWithGeminiApi(promptText, {
+          horizonDays: targetDeadlineDays,
+          today: toDateKey(new Date()),
+          profile: { chronotype: userHabits.chronotype, sessionStyle: userHabits.sessionStyle },
+        });
         if (res?.tasks && res.tasks.length > 0) {
           setTasks((prev) => [...res.tasks, ...prev]);
           return;
@@ -286,6 +347,8 @@ export function App() {
         id: `batch-${Date.now()}-1`,
         title: isExam ? 'Core Theoretical Principles & Review' : 'Scaffolding & Core Endpoint Implementation',
         category: 'academic',
+        taskType: 'learn',
+        difficulty: 4,
         quadrant: 'Q1',
         estimatedMinutes: 45,
         confidence: 2,
@@ -303,6 +366,8 @@ export function App() {
         id: `batch-${Date.now()}-2`,
         title: isExam ? 'Targeted Problem Set & Calculations' : 'Integration & Error Handling Test',
         category: 'academic',
+        taskType: 'practice',
+        difficulty: 3,
         quadrant: 'Q2',
         estimatedMinutes: 40,
         confidence: 3,
@@ -375,7 +440,21 @@ export function App() {
     });
 
     setStreakCount((s) => s + 1);
-    setTasks((prev) => prev.filter((t) => t.id !== block.taskId && !block.taskId.startsWith(t.id)));
+    setPreferredSessionId(null);
+    setDoneSessionIds((prev) => [...prev, `${block.id}@${block.dateKey}`]);
+
+    // Work sessions advance the task's progress; the planner re-splits whatever remains.
+    if (block.kind !== 'REVIEW') {
+      const task = tasks.find((t) => t.id === block.taskId);
+      if (task) {
+        const completedMinutes = (task.completedMinutes || 0) + (block.rawDuration || 0);
+        if (completedMinutes >= (task.estimatedMinutes || 45) - 5) {
+          setTasks((prev) => prev.filter((t) => t.id !== task.id));
+        } else {
+          setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, completedMinutes } : t)));
+        }
+      }
+    }
 
     if (backendOnline) {
       await submitReviewApi({
@@ -389,6 +468,7 @@ export function App() {
         id: `rev-${Date.now()}`,
         taskTitle: block.taskTitle,
         status: 'COMPLETED',
+        hourOfDay: Math.floor((block.startMin % 1440) / 60),
         timestamp: new Date().toISOString(),
       },
       ...prev,
@@ -422,25 +502,31 @@ export function App() {
         }
       }
     } else {
-      setReviewHistory((prev) => [
-        {
-          id: `rev-${Date.now()}`,
-          taskTitle: scheduledBlock.taskTitle,
-          status: 'NOT_DONE',
-          reasonId,
-          userNote,
-          timestamp: new Date().toISOString(),
-        },
-        ...prev,
-      ]);
+      // Offline: apply the same adaptive learning locally.
+      const result = processSessionReview({
+        scheduledBlock,
+        status,
+        reasonId,
+        userNote,
+        reviewHistory,
+        learnedFatigueHours,
+        learnedBufferInflation,
+      });
+      setReviewHistory(result.updatedHistory);
+      setLearnedFatigueHours(result.updatedFatigueHours);
+      setLearnedBufferInflation(result.newBufferInflation);
     }
   };
 
+  // Swap the current session for a lighter one later today; the heavy one stays planned.
   const handleSwapLighter = () => {
-    const lighter = tasks.find((t) => t.quadrant === 'Q3' || t.estimatedMinutes <= 25);
-    if (lighter) {
-      setTasks((prev) => [lighter, ...prev.filter((t) => t.id !== lighter.id)]);
-    }
+    if (!currentActionBlock) return;
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const lighter = (plan.days[0]?.sessions || [])
+      .filter((s) => s.id !== currentActionBlock.id && s.status !== 'COMPLETED' && s.endMin > nowMin)
+      .filter((s) => s.difficulty < currentActionBlock.difficulty || s.rawDuration < currentActionBlock.rawDuration)
+      .sort((a, b) => a.difficulty - b.difficulty || a.rawDuration - b.rawDuration)[0];
+    if (lighter) setPreferredSessionId(lighter.id);
   };
 
   const handleSaveRoutine = async (routineData) => {
@@ -450,6 +536,7 @@ export function App() {
       sleepTime: routineData.sleepTime,
       chronotype: routineData.chronotype,
       distractionFactor: routineData.distractionFactor,
+      sessionStyle: routineData.sessionStyle,
       habits: routineData.habits,
     };
     setUserHabits(updated);
@@ -457,6 +544,15 @@ export function App() {
     if (backendOnline) {
       await saveUserHabitsApi(updated).catch(console.error);
     }
+  };
+
+  const timelineProps = {
+    plan,
+    selectedDayIdx,
+    setSelectedDayIdx,
+    currentSessionId: currentActionBlock?.id,
+    aiCoach,
+    onRequestAICoach: handleRequestAICoach,
   };
 
   return (
@@ -488,10 +584,11 @@ export function App() {
 
             {/* Structured master schedule underneath */}
             <ScheduleTimeline
-              timelineItems={scheduleResult.allTimelineItems}
-              activeDay={activeDay}
-              setActiveDay={setActiveDay}
-              onStartFocus={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              {...timelineProps}
+              onStartFocus={(item) => {
+                setPreferredSessionId(item.id);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
             />
           </div>
         )}
@@ -505,16 +602,17 @@ export function App() {
             onGenerateBatchAI={handleBatchAI}
             targetDeadlineDays={targetDeadlineDays}
             onUpdateTargetDeadlineDays={setTargetDeadlineDays}
+            feasibility={plan.feasibility}
+            unscheduled={plan.unscheduled}
           />
         )}
 
         {/* VIEW 3: SCHEDULE TIMELINE */}
         {activeTab === 'timeline' && (
           <ScheduleTimeline
-            timelineItems={scheduleResult.allTimelineItems}
-            activeDay={activeDay}
-            setActiveDay={setActiveDay}
-            onStartFocus={() => {
+            {...timelineProps}
+            onStartFocus={(item) => {
+              setPreferredSessionId(item.id);
               setActiveTab('focus');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}

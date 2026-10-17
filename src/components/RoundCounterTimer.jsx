@@ -184,6 +184,11 @@ export function RoundCounterTimer({
 
         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
           {currentBlock.rawDuration}m Sprint + {currentBlock.bufferMinutes}m Buffer
+          {currentBlock.reason && (
+            <div style={{ fontFamily: 'inherit', fontSize: '0.72rem', color: 'var(--text-faint)', marginTop: '0.15rem' }}>
+              {currentBlock.reason}
+            </div>
+          )}
         </div>
       </div>
 

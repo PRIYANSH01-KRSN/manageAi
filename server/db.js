@@ -86,6 +86,22 @@ db.exec(`
   );
 `);
 
+// Lightweight forward-only migrations for columns added after the first release.
+function addColumnIfMissing(table, column, definition) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!cols.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+
+addColumnIfMissing('tasks', 'subject', 'TEXT');
+addColumnIfMissing('tasks', 'difficulty', 'INTEGER');
+addColumnIfMissing('tasks', 'deadline', 'TEXT');
+addColumnIfMissing('tasks', 'task_type', 'TEXT');
+addColumnIfMissing('tasks', 'completed_minutes', 'INTEGER DEFAULT 0');
+addColumnIfMissing('users', 'session_style', "TEXT DEFAULT 'pomodoro'");
+addColumnIfMissing('users', 'daily_focus_cap_minutes', 'INTEGER DEFAULT 300');
+
 // Seed default user if not exists
 const defaultUserId = 'default_user';
 const userRow = db.prepare('SELECT id FROM users WHERE id = ?').get(defaultUserId);
