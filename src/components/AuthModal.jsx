@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, LogIn, Mail } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
 
@@ -8,6 +8,18 @@ export function AuthModal({ isOpen, onClose }) {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [googleEnabled, setGoogleEnabled] = useState(false);
+
+  // Only offer Google when it's switched on in Supabase (otherwise it lands on an error page).
+  useEffect(() => {
+    if (!isOpen) return;
+    const url = import.meta.env.VITE_SUPABASE_URL;
+    const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    fetch(`${url}/auth/v1/settings`, { headers: { apikey: key } })
+      .then((r) => r.json())
+      .then((s) => setGoogleEnabled(Boolean(s?.external?.google)))
+      .catch(() => setGoogleEnabled(false));
+  }, [isOpen]);
 
   if (!isOpen || !supabase) return null;
 
@@ -57,7 +69,7 @@ export function AuthModal({ isOpen, onClose }) {
           Your tasks, check-ins and progress are saved to your account and follow you to any device. Only you can see them.
         </p>
 
-        {mode !== 'reset' && (
+        {mode !== 'reset' && googleEnabled && (
           <>
             <button type="button" className="btn-secondary" style={{ width: '100%', marginBottom: '0.85rem' }} onClick={handleGoogle}>
               Continue with Google
