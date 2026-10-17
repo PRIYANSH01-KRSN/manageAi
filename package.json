@@ -8,7 +8,8 @@
     "server": "node --env-file=.env server/index.js",
     "build": "vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test tests/planner.test.js"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",

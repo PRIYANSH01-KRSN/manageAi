@@ -1,16 +1,19 @@
-import React, { useState } from 'react';
-import { Plus, Trash2, Sparkles, Clock, Calendar, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Plus, Trash2, Sparkles, Clock, Calendar, AlertTriangle, CheckCircle2, Target } from 'lucide-react';
 import { EISENHOWER_QUADRANTS } from '../constants/initialData';
+import { VOLUME_TYPES, KNOWLEDGE_LEVELS, estimateFromVolume, sanityCheckEstimate, calibrationRatioFor } from '../services/estimationEngine';
 
-export function BacklogCruncher({ 
-  tasks = [], 
-  onAddTask, 
-  onDeleteTask, 
+export function BacklogCruncher({
+  tasks = [],
+  onAddTask,
+  onDeleteTask,
   onGenerateBatchAI,
+  onOpenBattlePlan,
   targetDeadlineDays = 3,
   onUpdateTargetDeadlineDays,
   feasibility,
-  unscheduled = []
+  unscheduled = [],
+  calibration = {}
 }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showBatchModal, setShowBatchModal] = useState(false);
@@ -25,6 +28,31 @@ export function BacklogCruncher({
   const [deadline, setDeadline] = useState('');
   const [difficulty, setDifficulty] = useState(3);
   const [taskType, setTaskType] = useState('learn');
+  const [volumeType, setVolumeType] = useState('none');
+  const [volumeCount, setVolumeCount] = useState('');
+  const [knowledgeLevel, setKnowledgeLevel] = useState(1);
+
+  // Realistic estimate from volume × knowledge × difficulty × personal pace.
+  const estimateInput = { volumeType, volumeCount, knowledgeLevel, difficulty, taskType, subject };
+  const paceRatio = calibrationRatioFor({ subject: subject.trim(), taskType }, calibration);
+  const volumeEstimate = useMemo(
+    () => estimateFromVolume(estimateInput, paceRatio),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [volumeType, volumeCount, knowledgeLevel, difficulty, taskType, paceRatio]
+  );
+  const estimateWarnings = isUncertain ? [] : sanityCheckEstimate(estimateInput, estimatedMinutes, paceRatio);
+
+  // Progress per subject (remaining vs. total estimate).
+  const subjectProgress = useMemo(() => {
+    const map = {};
+    tasks.forEach((t) => {
+      const key = t.subject || 'Other';
+      map[key] = map[key] || { total: 0, done: 0 };
+      map[key].total += t.estimatedMinutes || 45;
+      map[key].done += Math.min(t.completedMinutes || 0, t.estimatedMinutes || 45);
+    });
+    return Object.entries(map).sort((a, b) => b[1].total - a[1].total);
+  }, [tasks]);
 
   const [batchText, setBatchText] = useState('4 chapters of Microeconomics exam in 3 days; need to master Elasticity and Cost functions');
 
@@ -42,8 +70,8 @@ export function BacklogCruncher({
     e.preventDefault();
     if (!title.trim()) return;
 
-    // Unsure estimates get a generous default and lower confidence so the planner pads them.
-    const finalMinutes = isUncertain ? 60 + difficulty * 15 : Number(estimatedMinutes) || 45;
+    // Unsure estimates use the volume model when available, else a generous difficulty-based default.
+    const finalMinutes = isUncertain ? volumeEstimate?.planned || 60 + difficulty * 15 : Number(estimatedMinutes) || 45;
 
     onAddTask({
       id: `task-${Date.now()}`,
@@ -53,6 +81,9 @@ export function BacklogCruncher({
       deadline: deadline || undefined,
       difficulty: Number(difficulty),
       taskType,
+      knowledgeLevel: Number(knowledgeLevel),
+      volumeType: volumeType !== 'none' ? volumeType : undefined,
+      volumeCount: volumeType !== 'none' && Number(volumeCount) > 0 ? Number(volumeCount) : undefined,
       quadrant,
       estimatedMinutes: finalMinutes,
       completedMinutes: 0,
@@ -96,8 +127,14 @@ export function BacklogCruncher({
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <button 
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {onOpenBattlePlan && (
+            <button className="btn-secondary" onClick={onOpenBattlePlan} id="battle-plan-btn">
+              <Target size={14} />
+              <span>Exam Battle Plan</span>
+            </button>
+          )}
+          <button
             className="btn-secondary"
             onClick={() => setShowBatchModal(true)}
             id="batch-crunch-btn"
@@ -293,6 +330,48 @@ export function BacklogCruncher({
               )}
             </div>
 
+            {/* Volume-based realistic estimate */}
+            <div style={{ gridColumn: '1 / -1', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '0.75rem' }}>
+              <div style={{ fontSize: '0.75rem', color: '#ffffff', fontWeight: 700, marginBottom: '0.5rem' }}>Not sure how long? Describe the amount and we'll estimate realistically</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.5rem' }}>
+                <select className="input-field" value={volumeType} onChange={(e) => setVolumeType(e.target.value)}>
+                  {VOLUME_TYPES.map((v) => (
+                    <option key={v.id} value={v.id}>{v.label}</option>
+                  ))}
+                </select>
+                <input className="input-field" type="number" min="1" placeholder="How many?" value={volumeCount} onChange={(e) => setVolumeCount(e.target.value)} disabled={volumeType === 'none'} />
+                <select className="input-field" value={knowledgeLevel} onChange={(e) => setKnowledgeLevel(Number(e.target.value))}>
+                  {KNOWLEDGE_LEVELS.map((k) => (
+                    <option key={k.id} value={k.id}>Knowledge: {k.label}</option>
+                  ))}
+                </select>
+              </div>
+              {volumeEstimate && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginTop: '0.6rem', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                  <span>
+                    Realistic: <strong style={{ color: '#ffffff' }}>{volumeEstimate.planned}m</strong> (best {volumeEstimate.optimistic}m · worst {volumeEstimate.pessimistic}m)
+                    <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-faint)' }}>{volumeEstimate.explanation}</span>
+                  </span>
+                  <button type="button" className="btn-secondary" style={{ padding: '0.25rem 0.6rem', fontSize: '0.72rem' }} onClick={() => { setIsUncertain(false); setEstimatedMinutes(volumeEstimate.planned); }}>
+                    Use {volumeEstimate.planned}m
+                  </button>
+                </div>
+              )}
+              {estimateWarnings.map((w) => (
+                <div key={w.text} style={{ display: 'flex', gap: '0.4rem', marginTop: '0.5rem', fontSize: '0.75rem', color: w.level === 'info' ? 'var(--text-muted)' : '#fde68a' }}>
+                  <AlertTriangle size={13} style={{ flexShrink: 0, marginTop: '0.15rem' }} />
+                  <span>
+                    {w.text}
+                    {w.suggested && w.suggested !== Number(estimatedMinutes) && (
+                      <button type="button" onClick={() => setEstimatedMinutes(w.suggested)} style={{ marginLeft: '0.4rem', background: 'transparent', border: 'none', color: '#ffffff', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.75rem' }}>
+                        Use {w.suggested}m
+                      </button>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+
             <div>
               <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Due / Exam Date (plan finishes a day early)</label>
               <input type="date" className="input-field" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
@@ -340,6 +419,26 @@ export function BacklogCruncher({
             </button>
           </div>
         </form>
+      )}
+
+      {/* Subject coverage */}
+      {subjectProgress.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.6rem', marginBottom: '1.5rem' }}>
+          {subjectProgress.map(([name, p]) => {
+            const pct = p.total ? Math.round((p.done / p.total) * 100) : 0;
+            return (
+              <div key={name} style={{ background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '0.55rem 0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#ffffff' }}>
+                  <span>{name}</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{pct}% · {((p.total - p.done) / 60).toFixed(1)}h left</span>
+                </div>
+                <div style={{ height: '4px', background: 'var(--border-subtle)', borderRadius: '2px', marginTop: '0.35rem' }}>
+                  <div style={{ width: `${pct}%`, height: '100%', background: '#ffffff', borderRadius: '2px' }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
 
       {/* 4 Quadrants Display */}

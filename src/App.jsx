@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Navbar } from './components/Navbar';
 import { RoundCounterTimer } from './components/RoundCounterTimer';
 import { BacklogCruncher } from './components/BacklogCruncher';
@@ -9,6 +9,9 @@ import { EnergyHabitSettings } from './components/EnergyHabitSettings';
 import { ReviewModal } from './components/ReviewModal';
 import { OnboardingModal } from './components/OnboardingModal';
 import { GuideTourModal } from './components/GuideTourModal';
+import { DailyCheckInModal } from './components/DailyCheckInModal';
+import { BattlePlanWizard } from './components/BattlePlanWizard';
+import { EndOfDayModal } from './components/EndOfDayModal';
 
 import {
   checkBackendStatus,
@@ -25,180 +28,74 @@ import {
   fetchReviewsApi,
   submitReviewApi,
   crunchBacklogWithGeminiApi,
-  fetchAICoachApi
+  fetchAICoachApi,
+  fetchAITaskCoachApi,
+  fetchCheckinsApi,
+  saveCheckinApi,
+  fetchSessionLogsApi,
 } from './services/apiClient';
 
-import { buildStudyPlan, summarizePlanForAI, toDateKey } from './services/plannerEngine';
+import { buildStudyPlan, summarizePlanForAI, toDateKey, focusCapacityUntil, formatMinutesToTime } from './services/plannerEngine';
+import { computeCalibration } from './services/estimationEngine';
 import { processSessionReview } from './services/recalibrationService';
 import { INITIAL_USER_HABITS } from './constants/initialData';
+import { advanceStreak, currentStreakCount, downloadIcs, needsSupportNudge } from './utils/planUtils';
 import confetti from 'canvas-confetti';
 import { playCompletionChime } from './utils/audioSynthesizer';
 
-export function App() {
-  const [activeTab, setActiveTab] = useState('focus'); // focus, backlog, timeline, timetable, analytics, habits
-  const [selectedDayIdx, setSelectedDayIdx] = useState(0); // 0 = today within the plan horizon
-  const [backendOnline, setBackendOnline] = useState(false);
-  const [targetDeadlineDays, setTargetDeadlineDays] = useState(() => {
+// localStorage-backed state with safe parsing (data survives refresh / redeploys).
+function usePersistentState(key, fallback) {
+  const [value, setValue] = useState(() => {
     try {
-      return parseInt(localStorage.getItem('cf_target_deadline'), 10) || 7;
+      const saved = localStorage.getItem(key);
+      return saved !== null ? JSON.parse(saved) : fallback;
     } catch {
-      return 7;
+      return fallback;
     }
   });
+  useEffect(() => {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (e) {
+      console.warn('Storage error', e);
+    }
+  }, [key, value]);
+  return [value, setValue];
+}
+
+export function App() {
+  const [activeTab, setActiveTab] = useState('focus'); // focus, backlog, timeline, timetable, analytics, habits
+  const [selectedDayIdx, setSelectedDayIdx] = useState(0);
+  const [backendOnline, setBackendOnline] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [isCheckInOpen, setIsCheckInOpen] = useState(false);
+  const [isBattlePlanOpen, setIsBattlePlanOpen] = useState(false);
+  const [isEndOfDayOpen, setIsEndOfDayOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [preferredSessionId, setPreferredSessionId] = useState(null);
   const [aiCoach, setAiCoach] = useState({ loading: false, headline: '', tips: [], error: '' });
+  const [aiTaskCoaching, setAiTaskCoaching] = useState({});
+  const [review, setReview] = useState(null); // { block, mode, actualMinutes }
 
-  // Core Data States (Dual Persistence: localStorage + SQLite Sync)
-  const [userHabits, setUserHabits] = useState(() => {
-    try {
-      const saved = localStorage.getItem('cf_user_habits');
-      return saved ? JSON.parse(saved) : INITIAL_USER_HABITS;
-    } catch {
-      return INITIAL_USER_HABITS;
-    }
-  });
+  // Core data (dual persistence: localStorage + SQLite sync)
+  const [targetDeadlineDays, setTargetDeadlineDays] = usePersistentState('cf_target_deadline', 7);
+  const [userHabits, setUserHabits] = usePersistentState('cf_user_habits', INITIAL_USER_HABITS);
+  const [fixedSchedule, setFixedSchedule] = usePersistentState('cf_fixed_schedule', []);
+  const [tasks, setTasks] = usePersistentState('cf_tasks', []);
+  const [reviewHistory, setReviewHistory] = usePersistentState('cf_review_history', []);
+  const [learnedFatigueHours, setLearnedFatigueHours] = usePersistentState('cf_fatigue_hours', []);
+  const [learnedBufferInflation, setLearnedBufferInflation] = usePersistentState('cf_buffer_inflation', 1.0);
+  const [streak, setStreak] = usePersistentState('cf_streak_v2', null);
+  const [doneSessionIds, setDoneSessionIds] = usePersistentState('cf_done_sessions', []);
+  const [dayContexts, setDayContexts] = usePersistentState('cf_checkins', {});
+  const [sessionLogs, setSessionLogs] = usePersistentState('cf_session_logs', []);
+  const [parkingLot, setParkingLot] = usePersistentState('cf_parking_lot', []);
+  const [checkInSkipped, setCheckInSkipped] = usePersistentState('cf_checkin_skipped', null);
 
-  const [fixedSchedule, setFixedSchedule] = useState(() => {
-    try {
-      const saved = localStorage.getItem('cf_fixed_schedule');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  const [tasks, setTasks] = useState(() => {
-    try {
-      const saved = localStorage.getItem('cf_tasks');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  const [reviewHistory, setReviewHistory] = useState(() => {
-    try {
-      const saved = localStorage.getItem('cf_review_history');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  const [learnedFatigueHours, setLearnedFatigueHours] = useState(() => {
-    try {
-      const saved = localStorage.getItem('cf_fatigue_hours');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  const [learnedBufferInflation, setLearnedBufferInflation] = useState(() => {
-    try {
-      const saved = localStorage.getItem('cf_buffer_inflation');
-      return saved ? parseFloat(saved) : 1.0;
-    } catch {
-      return 1.0;
-    }
-  });
-
-  const [streakCount, setStreakCount] = useState(() => {
-    try {
-      const saved = localStorage.getItem('cf_streak');
-      return saved ? parseInt(saved, 10) : 0;
-    } catch {
-      return 0;
-    }
-  });
-
-  // Sessions the student has checked off, keyed as "<sessionId>@<dateKey>"
-  const [doneSessionIds, setDoneSessionIds] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('cf_done_sessions') || '[]');
-    } catch {
-      return [];
-    }
-  });
-
-  // Review Modal State
-  const [activeReviewBlock, setActiveReviewBlock] = useState(null);
-
-  // Sync state changes directly to localStorage immediately so data never resets on refresh
-  useEffect(() => {
-    try {
-      localStorage.setItem('cf_tasks', JSON.stringify(tasks));
-    } catch (e) {
-      console.warn('Storage error', e);
-    }
-  }, [tasks]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('cf_fixed_schedule', JSON.stringify(fixedSchedule));
-    } catch (e) {
-      console.warn('Storage error', e);
-    }
-  }, [fixedSchedule]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('cf_user_habits', JSON.stringify(userHabits));
-    } catch (e) {
-      console.warn('Storage error', e);
-    }
-  }, [userHabits]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('cf_review_history', JSON.stringify(reviewHistory));
-    } catch (e) {
-      console.warn('Storage error', e);
-    }
-  }, [reviewHistory]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('cf_fatigue_hours', JSON.stringify(learnedFatigueHours));
-    } catch (e) {
-      console.warn('Storage error', e);
-    }
-  }, [learnedFatigueHours]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('cf_buffer_inflation', learnedBufferInflation.toString());
-    } catch (e) {
-      console.warn('Storage error', e);
-    }
-  }, [learnedBufferInflation]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('cf_streak', streakCount.toString());
-    } catch (e) {
-      console.warn('Storage error', e);
-    }
-  }, [streakCount]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('cf_target_deadline', targetDeadlineDays.toString());
-    } catch (e) {
-      console.warn('Storage error', e);
-    }
-  }, [targetDeadlineDays]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('cf_done_sessions', JSON.stringify(doneSessionIds.slice(-200)));
-    } catch (e) {
-      console.warn('Storage error', e);
-    }
-  }, [doneSessionIds]);
+  const todayKey = toDateKey(now);
+  const todayContext = dayContexts[todayKey] || null;
+  const calibration = useMemo(() => computeCalibration(sessionLogs), [sessionLogs]);
 
   // Roll the plan forward every minute so missed sessions get re-planned automatically.
   useEffect(() => {
@@ -206,76 +103,88 @@ export function App() {
     return () => clearInterval(id);
   }, []);
 
-  // First-time onboarding trigger
+  // First-time onboarding, then a daily check-in each morning.
   useEffect(() => {
-    const done = localStorage.getItem('cf_onboarding_completed');
-    if (!done) {
+    if (!localStorage.getItem('cf_onboarding_completed')) {
       setIsOnboardingOpen(true);
+    } else if (!dayContexts[todayKey] && checkInSkipped !== todayKey) {
+      setIsCheckInOpen(true);
     }
-  }, []);
+    // Only evaluated when the date changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [todayKey]);
 
-  // Initial Load & Bidirectional Sync with SQLite backend
+  // Initial load & bidirectional sync with the SQLite backend
   useEffect(() => {
     async function loadDataFromDb() {
       try {
         const status = await checkBackendStatus();
-        if (status.status === 'online') {
-          setBackendOnline(true);
+        if (status.status !== 'online') return;
+        setBackendOnline(true);
 
-          const [habitsData, fixedEvents, dbTasks, reviewsData] = await Promise.all([
-            fetchUserHabitsApi().catch(() => null),
-            fetchFixedEventsApi().catch(() => null),
-            fetchTasksApi().catch(() => null),
-            fetchReviewsApi().catch(() => null),
-          ]);
+        const [habitsData, fixedEvents, dbTasks, reviewsData, checkins, logsData] = await Promise.all([
+          fetchUserHabitsApi().catch(() => null),
+          fetchFixedEventsApi().catch(() => null),
+          fetchTasksApi().catch(() => null),
+          fetchReviewsApi().catch(() => null),
+          fetchCheckinsApi().catch(() => null),
+          fetchSessionLogsApi().catch(() => null),
+        ]);
 
-          if (habitsData && habitsData.habits && habitsData.habits.length > 0) {
-            setUserHabits(habitsData);
-            if (habitsData.learnedFatigueHours) {
-              setLearnedFatigueHours(habitsData.learnedFatigueHours);
-            }
-          }
+        if (habitsData && habitsData.habits && habitsData.habits.length > 0) {
+          setUserHabits((local) => ({ ...local, ...habitsData }));
+          if (habitsData.learnedFatigueHours) setLearnedFatigueHours(habitsData.learnedFatigueHours);
+        }
+        if (fixedEvents && fixedEvents.length > 0) setFixedSchedule(fixedEvents);
 
-          if (fixedEvents && fixedEvents.length > 0) {
-            setFixedSchedule(fixedEvents);
-          }
+        if (dbTasks && dbTasks.length > 0) {
+          setTasks(dbTasks);
+        } else {
+          const localSavedTasks = JSON.parse(localStorage.getItem('cf_tasks') || '[]');
+          if (localSavedTasks.length > 0) await createBatchTasksApi(localSavedTasks).catch(console.error);
+        }
 
-          // If SQLite has tasks, use them. If SQLite is empty but local has tasks, sync to SQLite!
-          if (dbTasks && dbTasks.length > 0) {
-            setTasks(dbTasks);
-          } else {
-            const localSavedTasks = JSON.parse(localStorage.getItem('cf_tasks') || '[]');
-            if (localSavedTasks.length > 0) {
-              await createBatchTasksApi(localSavedTasks).catch(console.error);
-            }
-          }
-
-          if (reviewsData && reviewsData.reviews && reviewsData.reviews.length > 0) {
-            setReviewHistory(reviewsData.reviews);
-            if (reviewsData.learnedBufferInflation) {
-              setLearnedBufferInflation(reviewsData.learnedBufferInflation);
-            }
-          }
+        if (reviewsData && reviewsData.reviews && reviewsData.reviews.length > 0) {
+          setReviewHistory(reviewsData.reviews);
+          if (reviewsData.learnedBufferInflation) setLearnedBufferInflation(reviewsData.learnedBufferInflation);
+        }
+        if (checkins && Object.keys(checkins).length > 0) {
+          setDayContexts((local) => ({ ...checkins, ...local }));
+        }
+        if (logsData?.logs?.length) {
+          setSessionLogs((local) =>
+            local.length > 0
+              ? local
+              : logsData.logs.map((l) => ({ ...l, dateKey: l.timestamp ? toDateKey(new Date(`${l.timestamp.replace(' ', 'T')}Z`)) : null }))
+          );
         }
       } catch (err) {
         console.warn('Backend connection notice:', err.message);
       }
     }
     loadDataFromDb();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 2. Generate the multi-day, deadline-aware study plan
-  const plan = useMemo(() => {
-    const raw = buildStudyPlan({
+  const planParams = useMemo(
+    () => ({
       tasks,
       userHabits,
       fixedSchedule,
       learnedFatigueHours,
       learnedBufferInflation,
       reviewHistory,
+      dayContexts,
+      calibration,
       horizonDays: targetDeadlineDays,
       now,
-    });
+    }),
+    [tasks, userHabits, fixedSchedule, learnedFatigueHours, learnedBufferInflation, reviewHistory, dayContexts, calibration, targetDeadlineDays, now]
+  );
+
+  // Multi-day, deadline-aware, check-in-aware study plan
+  const plan = useMemo(() => {
+    const raw = buildStudyPlan(planParams);
     const done = new Set(doneSessionIds);
     raw.days.forEach((d) =>
       d.sessions.forEach((s) => {
@@ -283,44 +192,105 @@ export function App() {
       })
     );
     return raw;
-  }, [tasks, userHabits, fixedSchedule, learnedFatigueHours, learnedBufferInflation, reviewHistory, targetDeadlineDays, now, doneSessionIds]);
+  }, [planParams, doneSessionIds]);
 
-  // Current actionable focus task: next pending session today (or the one the student picked)
+  // Exactly one thing to do now: next pending session today (or the one the student picked)
   const currentActionBlock = useMemo(() => {
     const nowMin = now.getHours() * 60 + now.getMinutes();
     const todays = (plan.days[0]?.sessions || []).filter((s) => s.status !== 'COMPLETED' && s.endMin > nowMin);
     return todays.find((s) => s.id === preferredSessionId) || todays[0] || null;
   }, [plan, now, preferredSessionId]);
 
+  // Browser reminders 5 minutes before each session
+  const notifiedRef = useRef(new Set());
+  useEffect(() => {
+    if (!userHabits.remindersEnabled || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    (plan.days[0]?.sessions || []).forEach((s) => {
+      const key = `${s.id}@${s.dateKey}`;
+      if (s.status === 'COMPLETED' || notifiedRef.current.has(key)) return;
+      if (s.startMin - nowMin <= 5 && s.startMin - nowMin >= 0) {
+        notifiedRef.current.add(key);
+        try {
+          new Notification(`In ${s.startMin - nowMin} min: ${s.taskTitle}`, { body: `First 2 minutes: ${s.coaching?.starter || 'open your materials.'}` });
+        } catch {
+          // notifications unsupported in this context
+        }
+      }
+    });
+  }, [plan, now, userHabits.remindersEnabled]);
+
+  /* ---------------- Check-in & day controls ---------------- */
+
+  const saveTodayContext = async (patch) => {
+    const next = { ...(dayContexts[todayKey] || {}), ...patch };
+    setDayContexts((prev) => ({ ...prev, [todayKey]: next }));
+    if (backendOnline) await saveCheckinApi(todayKey, next).catch(console.error);
+  };
+
+  const handleSaveCheckin = (data) => {
+    saveTodayContext(data);
+    setPreferredSessionId(null);
+  };
+
+  const handleChangePlanVariant = (variant) => saveTodayContext({ planVariant: variant });
+
+  const handleSomethingCameUp = (choice) => {
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const start = formatMinutesToTime(Math.ceil(nowMin / 5) * 5);
+    let end;
+    if (choice === 'rest') end = userHabits.sleepTime || '23:30';
+    else if (choice === 'afternoon') end = '18:00';
+    else end = formatMinutesToTime(Math.ceil(nowMin / 5) * 5 + Number(choice));
+    const busyBlocks = [...(todayContext?.busyBlocks || []), { title: 'Something came up', startTime: start, endTime: end }];
+    saveTodayContext({ busyBlocks });
+    setPreferredSessionId(null);
+  };
+
+  /* ---------------- AI ---------------- */
+
   const handleRequestAICoach = async () => {
     setAiCoach((c) => ({ ...c, loading: true, error: '' }));
     try {
       if (!backendOnline) throw new Error('offline');
-      const res = await fetchAICoachApi(summarizePlanForAI(plan, userHabits));
+      const res = await fetchAICoachApi(summarizePlanForAI(plan, userHabits, todayContext));
       setAiCoach({ loading: false, headline: res.headline, tips: res.tips || [], error: '' });
     } catch {
-      setAiCoach({
-        loading: false,
-        headline: '',
-        tips: [],
-        error: 'AI coach unavailable (backend offline or no GEMINI_API_KEY). Planner insights are shown instead.',
-      });
+      setAiCoach({ loading: false, headline: '', tips: [], error: 'AI coach unavailable (backend offline or no GEMINI_API_KEY). Planner insights are shown instead.' });
     }
   };
 
-  // Task Mutations
+  const handleRequestAITaskCoach = async (block) => {
+    try {
+      if (!backendOnline) throw new Error('offline');
+      const res = await fetchAITaskCoachApi(block.taskData, block.rawDuration, todayContext || {});
+      setAiTaskCoaching((prev) => ({ ...prev, [block.taskId]: res.coaching }));
+    } catch {
+      setAiTaskCoaching((prev) => ({ ...prev, [block.taskId]: { error: 'AI guide unavailable right now — the built-in technique guide below still applies.' } }));
+    }
+  };
+
+  /* ---------------- Tasks ---------------- */
+
   const handleAddTask = async (newTask) => {
     setTasks((prev) => [newTask, ...prev]);
-    if (backendOnline) {
-      await createTaskApi(newTask).catch(console.error);
-    }
+    if (backendOnline) await createTaskApi(newTask).catch(console.error);
+  };
+
+  const handleAddTasks = async (newTasks) => {
+    setTasks((prev) => [...newTasks, ...prev]);
+    if (backendOnline) await createBatchTasksApi(newTasks).catch(console.error);
+  };
+
+  const updateTask = (id, patch) => {
+    const current = tasks.find((t) => t.id === id);
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+    return current ? { ...current, ...patch } : null;
   };
 
   const handleDeleteTask = async (id) => {
     setTasks((prev) => prev.filter((t) => t.id !== id));
-    if (backendOnline) {
-      await deleteTaskApi(id).catch(console.error);
-    }
+    if (backendOnline) await deleteTaskApi(id).catch(console.error);
   };
 
   const handleBatchAI = async (promptText) => {
@@ -328,7 +298,7 @@ export function App() {
       if (backendOnline) {
         const res = await crunchBacklogWithGeminiApi(promptText, {
           horizonDays: targetDeadlineDays,
-          today: toDateKey(new Date()),
+          today: todayKey,
           profile: { chronotype: userHabits.chronotype, sessionStyle: userHabits.sessionStyle },
         });
         if (res?.tasks && res.tasks.length > 0) {
@@ -340,181 +310,157 @@ export function App() {
       console.warn('Gemini live call error, using local synthesizer:', err);
     }
 
-    // Local deterministic fallback
-    const isExam = promptText.toLowerCase().includes('exam') || promptText.toLowerCase().includes('chapter');
-    const newTasks = [
-      {
-        id: `batch-${Date.now()}-1`,
-        title: isExam ? 'Core Theoretical Principles & Review' : 'Scaffolding & Core Endpoint Implementation',
-        category: 'academic',
-        taskType: 'learn',
-        difficulty: 4,
-        quadrant: 'Q1',
-        estimatedMinutes: 45,
-        confidence: 2,
-        weightage: 5,
-        materials: ['Reference Slides / Docs'],
-        roadblock: 'Overthinking start point',
-        steps: [
-          'Step 1: Open primary reference material (5m)',
-          'Step 2: Solve 1 core section without interruption (30m)',
-          'Step 3: Document summary notes (10m)',
-        ],
-        stuckProtocol: 'If stuck > 7 minutes, write down the question and proceed.',
-      },
-      {
-        id: `batch-${Date.now()}-2`,
-        title: isExam ? 'Targeted Problem Set & Calculations' : 'Integration & Error Handling Test',
-        category: 'academic',
-        taskType: 'practice',
-        difficulty: 3,
-        quadrant: 'Q2',
-        estimatedMinutes: 40,
-        confidence: 3,
-        weightage: 4,
-        materials: ['Problem set sheet'],
-        roadblock: 'Skipping edge cases',
-        steps: [
-          'Step 1: Setup workspace and formula sheet (5m)',
-          'Step 2: Execute problems 1 through 3 (25m)',
-          'Step 3: Check against answer key (10m)',
-        ],
-        stuckProtocol: 'Check formula list on slide 12.',
-      },
-    ];
-
-    setTasks((prev) => [...newTasks, ...prev]);
-    if (backendOnline) {
-      await createBatchTasksApi(newTasks).catch(console.error);
-    }
+    // Offline fallback: open the deterministic battle-plan wizard instead of guessing.
+    setIsBattlePlanOpen(true);
   };
 
-  // Fixed Events Mutations
+  /* ---------------- Fixed events & habits ---------------- */
+
   const handleAddFixedEvent = async (ev) => {
     setFixedSchedule((prev) => [...prev, ev]);
-    if (backendOnline) {
-      await createFixedEventApi(ev).catch(console.error);
-    }
+    if (backendOnline) await createFixedEventApi(ev).catch(console.error);
   };
 
   const handleDeleteFixedEvent = async (id) => {
     setFixedSchedule((prev) => prev.filter((e) => e.id !== id));
-    if (backendOnline) {
-      await deleteFixedEventApi(id).catch(console.error);
-    }
+    if (backendOnline) await deleteFixedEventApi(id).catch(console.error);
   };
 
   const handleToggleGapStudy = async (id) => {
-    setFixedSchedule((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, allowGapStudy: !e.allowGapStudy } : e))
-    );
-    if (backendOnline) {
-      await toggleGapStudyApi(id).catch(console.error);
-    }
+    setFixedSchedule((prev) => prev.map((e) => (e.id === id ? { ...e, allowGapStudy: !e.allowGapStudy } : e)));
+    if (backendOnline) await toggleGapStudyApi(id).catch(console.error);
   };
 
   const handleBatchAddFixedEvents = async (events) => {
     setFixedSchedule((prev) => [...prev, ...events]);
     if (backendOnline) {
-      for (const ev of events) {
-        await createFixedEventApi(ev).catch(console.error);
-      }
+      for (const ev of events) await createFixedEventApi(ev).catch(console.error);
     }
   };
 
-  // Habit mutations
   const handleUpdateHabits = async (newHabits) => {
     setUserHabits(newHabits);
-    if (backendOnline) {
-      await saveUserHabitsApi(newHabits).catch(console.error);
+    if (backendOnline) await saveUserHabitsApi(newHabits).catch(console.error);
+  };
+
+  /* ---------------- Sessions: done / partial / stalled ---------------- */
+
+  const logSession = (block, status, progressPct, actualMinutes) => {
+    setSessionLogs((prev) =>
+      [
+        {
+          dateKey: todayKey,
+          timestamp: new Date().toISOString(),
+          taskTitle: block.taskTitle,
+          subject: block.subject,
+          taskType: block.taskType,
+          kind: block.kind,
+          status,
+          progressPct,
+          // planned work actually covered vs. real minutes spent → pace calibration
+          plannedMinutes: actualMinutes ? Math.round((block.rawDuration * progressPct) / 100) : null,
+          actualMinutes: actualMinutes || null,
+          hourOfDay: Math.floor((block.startMin % 1440) / 60),
+        },
+        ...prev,
+      ].slice(0, 400)
+    );
+  };
+
+  const creditProgress = (block, pct) => {
+    if (block.kind === 'REVIEW') return;
+    const task = tasks.find((t) => t.id === block.taskId);
+    if (!task) return;
+    const completedMinutes = (task.completedMinutes || 0) + Math.round(((block.progressMinutes ?? block.rawDuration) * pct) / 100);
+    if (completedMinutes >= (task.estimatedMinutes || 45) - 5) {
+      setTasks((prev) => prev.filter((t) => t.id !== task.id));
+    } else {
+      updateTask(task.id, { completedMinutes });
     }
   };
 
-  // Session Completion & Stalled Handlers
-  const handleMarkDone = async (block) => {
+  const handleMarkDone = async (block, { actualMinutes } = {}) => {
     playCompletionChime();
-    confetti({
-      particleCount: 50,
-      spread: 60,
-      origin: { y: 0.6 },
-    });
+    confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
 
-    setStreakCount((s) => s + 1);
+    setStreak((s) => advanceStreak(s));
     setPreferredSessionId(null);
-    setDoneSessionIds((prev) => [...prev, `${block.id}@${block.dateKey}`]);
-
-    // Work sessions advance the task's progress; the planner re-splits whatever remains.
-    if (block.kind !== 'REVIEW') {
-      const task = tasks.find((t) => t.id === block.taskId);
-      if (task) {
-        const completedMinutes = (task.completedMinutes || 0) + (block.rawDuration || 0);
-        if (completedMinutes >= (task.estimatedMinutes || 45) - 5) {
-          setTasks((prev) => prev.filter((t) => t.id !== task.id));
-        } else {
-          setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, completedMinutes } : t)));
-        }
-      }
-    }
+    setDoneSessionIds((prev) => [...prev, `${block.id}@${block.dateKey}`].slice(-300));
+    creditProgress(block, 100);
+    logSession(block, 'COMPLETED', 100, actualMinutes);
 
     if (backendOnline) {
-      await submitReviewApi({
-        scheduledBlock: block,
-        status: 'COMPLETED',
-      }).catch(console.error);
+      await submitReviewApi({ scheduledBlock: block, status: 'COMPLETED', actualMinutes }).catch(console.error);
     }
 
     setReviewHistory((prev) => [
-      {
-        id: `rev-${Date.now()}`,
-        taskTitle: block.taskTitle,
-        status: 'COMPLETED',
-        hourOfDay: Math.floor((block.startMin % 1440) / 60),
-        timestamp: new Date().toISOString(),
-      },
+      { id: `rev-${Date.now()}`, taskTitle: block.taskTitle, status: 'COMPLETED', hourOfDay: Math.floor((block.startMin % 1440) / 60), timestamp: new Date().toISOString() },
       ...prev,
     ]);
   };
 
-  const handleMarkNotDone = (block) => {
-    setActiveReviewBlock(block);
+  const handleMarkPartial = (block, { actualMinutes } = {}) => setReview({ block, mode: 'PARTIAL', actualMinutes });
+  const handleMarkNotDone = (block, { actualMinutes } = {}) => setReview({ block, mode: 'NOT_DONE', actualMinutes });
+
+  // Make each stall reason actually change the plan, as promised in the UI.
+  const applyReasonToTask = (block, reasonId, userNote) => {
+    const task = tasks.find((t) => t.id === block.taskId);
+    if (!task) return;
+    let updated = null;
+    if (reasonId === 'UNDERESTIMATED_TIME') {
+      updated = updateTask(task.id, { estimatedMinutes: Math.round(((task.estimatedMinutes || 45) * 1.25) / 5) * 5 });
+    } else if (reasonId === 'DIGITAL_DISTRACTION') {
+      updated = updateTask(task.id, { microSprints: true });
+    } else if (reasonId === 'CONCEPTUAL_BLOCK') {
+      handleAddTask({
+        id: `unblock-${task.id}-${Date.now()}`,
+        title: `Unblock: ${task.title}`,
+        subject: task.subject,
+        category: task.category,
+        taskType: 'learn',
+        quadrant: 'Q1',
+        difficulty: 2,
+        estimatedMinutes: 15,
+        completedMinutes: 0,
+        deadline: task.deadline,
+        materials: ['A different explanation (video, classmate, TA, alternative textbook)'],
+        roadblock: userNote || 'The specific concept that blocked you',
+        stuckProtocol: 'Write the exact question in one sentence. If still stuck after 15 minutes, ask someone and move on.',
+      });
+    }
+    if (updated && backendOnline) createTaskApi(updated).catch(console.error);
   };
 
-  const handleSubmitReview = async ({ scheduledBlock, status, reasonId, userNote }) => {
-    if (backendOnline) {
-      const res = await submitReviewApi({
-        scheduledBlock,
-        status,
-        reasonId,
-        userNote,
-      }).catch(console.error);
+  const handleSubmitReview = async ({ scheduledBlock, status, reasonId, userNote, progressPct = 0, actualMinutes }) => {
+    if (status === 'PARTIAL') {
+      creditProgress(scheduledBlock, progressPct);
+      setStreak((s) => advanceStreak(s)); // progress counts
+      setDoneSessionIds((prev) => [...prev, `${scheduledBlock.id}@${scheduledBlock.dateKey}`].slice(-300));
+    }
+    setPreferredSessionId(null);
+    logSession(scheduledBlock, status, progressPct, actualMinutes);
+    if (reasonId) applyReasonToTask(scheduledBlock, reasonId, userNote);
 
+    if (backendOnline) {
+      const res = await submitReviewApi({ scheduledBlock, status, reasonId, userNote, progressPct, actualMinutes }).catch(console.error);
       if (res?.reviewId) {
-        // Refresh reviews and inflation
         const reviewsData = await fetchReviewsApi().catch(() => null);
         if (reviewsData) {
           setReviewHistory(reviewsData.reviews || []);
-          if (reviewsData.learnedBufferInflation) {
-            setLearnedBufferInflation(reviewsData.learnedBufferInflation);
-          }
-          if (reviewsData.learnedFatigueHours) {
-            setLearnedFatigueHours(reviewsData.learnedFatigueHours);
-          }
+          if (reviewsData.learnedBufferInflation) setLearnedBufferInflation(reviewsData.learnedBufferInflation);
+          if (reviewsData.learnedFatigueHours) setLearnedFatigueHours(reviewsData.learnedFatigueHours);
         }
       }
-    } else {
-      // Offline: apply the same adaptive learning locally.
-      const result = processSessionReview({
-        scheduledBlock,
-        status,
-        reasonId,
-        userNote,
-        reviewHistory,
-        learnedFatigueHours,
-        learnedBufferInflation,
-      });
-      setReviewHistory(result.updatedHistory);
+    } else if (reasonId) {
+      const result = processSessionReview({ scheduledBlock, status: 'NOT_DONE', reasonId, userNote, reviewHistory, learnedFatigueHours, learnedBufferInflation });
+      setReviewHistory(result.updatedHistory.map((r, i) => (i === 0 ? { ...r, status } : r)));
       setLearnedFatigueHours(result.updatedFatigueHours);
       setLearnedBufferInflation(result.newBufferInflation);
+    } else {
+      setReviewHistory((prev) => [
+        { id: `rev-${Date.now()}`, taskTitle: scheduledBlock.taskTitle, status, hourOfDay: Math.floor((scheduledBlock.startMin % 1440) / 60), timestamp: new Date().toISOString() },
+        ...prev,
+      ]);
     }
   };
 
@@ -530,21 +476,25 @@ export function App() {
   };
 
   const handleSaveRoutine = async (routineData) => {
-    const updated = {
-      ...userHabits,
-      wakeTime: routineData.wakeTime,
-      sleepTime: routineData.sleepTime,
-      chronotype: routineData.chronotype,
-      distractionFactor: routineData.distractionFactor,
-      sessionStyle: routineData.sessionStyle,
-      habits: routineData.habits,
-    };
+    const updated = { ...userHabits, ...routineData };
     setUserHabits(updated);
     localStorage.setItem('cf_onboarding_completed', 'true');
-    if (backendOnline) {
-      await saveUserHabitsApi(updated).catch(console.error);
-    }
+    if (backendOnline) await saveUserHabitsApi(updated).catch(console.error);
+    if (!dayContexts[todayKey]) setIsCheckInOpen(true);
   };
+
+  const getCapacityUntil = useCallback((dateKey) => focusCapacityUntil(planParams, dateKey), [planParams]);
+
+  const todayStats = useMemo(() => {
+    const today = plan.days[0];
+    const logsToday = sessionLogs.filter((l) => l.dateKey === todayKey && l.status !== 'NOT_DONE');
+    const done = today ? today.sessions.filter((s) => s.status === 'COMPLETED').length : 0;
+    return {
+      doneCount: Math.max(done, logsToday.length),
+      plannedCount: Math.max(done, logsToday.length) + (today ? today.sessions.filter((s) => s.status !== 'COMPLETED').length : 0),
+      doneMinutes: logsToday.reduce((a, l) => a + (l.actualMinutes || 0), 0),
+    };
+  }, [plan, sessionLogs, todayKey]);
 
   const timelineProps = {
     plan,
@@ -553,15 +503,18 @@ export function App() {
     currentSessionId: currentActionBlock?.id,
     aiCoach,
     onRequestAICoach: handleRequestAICoach,
+    onChangePlanVariant: handleChangePlanVariant,
+    onSomethingCameUp: handleSomethingCameUp,
+    onExportCalendar: () => downloadIcs(plan),
+    onWrapUpDay: () => setIsEndOfDayOpen(true),
   };
 
   return (
     <div className="app-root">
-      {/* Top Monochrome Navbar with Live SQLite Connection */}
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        streakCount={streakCount}
+        streakCount={currentStreakCount(streak, now)}
         backendOnline={backendOnline}
         taskCount={tasks.length}
         onOpenOnboarding={() => setIsOnboardingOpen(true)}
@@ -569,20 +522,25 @@ export function App() {
       />
 
       <main className="main-content">
-        {/* VIEW 1: FOCUS & ROUND COUNTER */}
         {activeTab === 'focus' && (
           <div>
             <RoundCounterTimer
               currentBlock={currentActionBlock}
+              mission={plan.mission}
               onMarkDone={handleMarkDone}
+              onMarkPartial={handleMarkPartial}
               onMarkNotDone={handleMarkNotDone}
               onSwapLighter={handleSwapLighter}
               onNavigateTab={setActiveTab}
               onOpenGuide={() => setIsGuideOpen(true)}
               onOpenRoutineSetup={() => setIsOnboardingOpen(true)}
+              onOpenCheckIn={() => setIsCheckInOpen(true)}
+              onRequestAITaskCoach={handleRequestAITaskCoach}
+              aiCoaching={aiTaskCoaching}
+              parkingLot={parkingLot}
+              onUpdateParkingLot={setParkingLot}
             />
 
-            {/* Structured master schedule underneath */}
             <ScheduleTimeline
               {...timelineProps}
               onStartFocus={(item) => {
@@ -593,21 +551,21 @@ export function App() {
           </div>
         )}
 
-        {/* VIEW 2: BACKLOG CRUNCHER & STRATEGIC PLANNER */}
         {activeTab === 'backlog' && (
           <BacklogCruncher
             tasks={tasks}
             onAddTask={handleAddTask}
             onDeleteTask={handleDeleteTask}
             onGenerateBatchAI={handleBatchAI}
+            onOpenBattlePlan={() => setIsBattlePlanOpen(true)}
             targetDeadlineDays={targetDeadlineDays}
             onUpdateTargetDeadlineDays={setTargetDeadlineDays}
             feasibility={plan.feasibility}
             unscheduled={plan.unscheduled}
+            calibration={calibration}
           />
         )}
 
-        {/* VIEW 3: SCHEDULE TIMELINE */}
         {activeTab === 'timeline' && (
           <ScheduleTimeline
             {...timelineProps}
@@ -619,7 +577,6 @@ export function App() {
           />
         )}
 
-        {/* VIEW 4: TIMETABLE OCR */}
         {activeTab === 'timetable' && (
           <TimetableImporter
             fixedSchedule={fixedSchedule}
@@ -630,33 +587,22 @@ export function App() {
           />
         )}
 
-        {/* VIEW 5: ADAPTIVE MEMORY & ANALYTICS */}
         {activeTab === 'analytics' && (
           <AIInsightsPanel
             reviewHistory={reviewHistory}
             learnedFatigueHours={learnedFatigueHours}
             learnedBufferInflation={learnedBufferInflation}
             userHabits={userHabits}
+            sessionLogs={sessionLogs}
+            calibration={calibration}
           />
         )}
 
-        {/* VIEW 6: HABITS & CIRCADIAN RHYTHMS */}
-        {activeTab === 'habits' && (
-          <EnergyHabitSettings
-            userHabits={userHabits}
-            onUpdateHabits={handleUpdateHabits}
-          />
-        )}
+        {activeTab === 'habits' && <EnergyHabitSettings userHabits={userHabits} onUpdateHabits={handleUpdateHabits} />}
       </main>
 
-      {/* Routine Setup & Daily Analysis Questionnaire */}
-      <OnboardingModal
-        isOpen={isOnboardingOpen}
-        onClose={() => setIsOnboardingOpen(false)}
-        onSaveRoutine={handleSaveRoutine}
-      />
+      <OnboardingModal isOpen={isOnboardingOpen} onClose={() => setIsOnboardingOpen(false)} onSaveRoutine={handleSaveRoutine} />
 
-      {/* Interactive 5-Step First Time User Guide */}
       <GuideTourModal
         isOpen={isGuideOpen}
         onClose={() => setIsGuideOpen(false)}
@@ -664,11 +610,29 @@ export function App() {
         onOpenRoutineSetup={() => setIsOnboardingOpen(true)}
       />
 
-      {/* Zero-Guilt Stall Review Modal */}
-      {activeReviewBlock && (
+      {isCheckInOpen && (
+        <DailyCheckInModal
+          isOpen
+          initial={todayContext}
+          showSupportNudge={needsSupportNudge(dayContexts)}
+          onClose={() => {
+            setIsCheckInOpen(false);
+            if (!dayContexts[todayKey]) setCheckInSkipped(todayKey);
+          }}
+          onSave={handleSaveCheckin}
+        />
+      )}
+
+      <BattlePlanWizard isOpen={isBattlePlanOpen} onClose={() => setIsBattlePlanOpen(false)} onAddTasks={handleAddTasks} getCapacityUntil={getCapacityUntil} />
+
+      <EndOfDayModal isOpen={isEndOfDayOpen} onClose={() => setIsEndOfDayOpen(false)} todayStats={todayStats} tomorrow={plan.days[1]} parkingLot={parkingLot} />
+
+      {review && (
         <ReviewModal
-          block={activeReviewBlock}
-          onClose={() => setActiveReviewBlock(null)}
+          block={review.block}
+          mode={review.mode}
+          actualMinutes={review.actualMinutes}
+          onClose={() => setReview(null)}
           onSubmitReview={handleSubmitReview}
         />
       )}

@@ -54,6 +54,41 @@ export async function fetchAICoachApi(summary) {
   return await res.json();
 }
 
+// Gemini Task Coach: content-specific "how to do this session"
+export async function fetchAITaskCoachApi(task, minutes, context) {
+  const res = await fetch(`${API_BASE}/ai/task-coach`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ task, minutes, context }),
+  });
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(errorText);
+  }
+  return await res.json();
+}
+
+export async function fetchCheckinsApi() {
+  const res = await fetch(`${API_BASE}/checkins`);
+  if (!res.ok) throw new Error('Failed to fetch check-ins');
+  return await res.json();
+}
+
+export async function saveCheckinApi(dateKey, checkin) {
+  const res = await fetch(`${API_BASE}/checkins/${dateKey}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(checkin),
+  });
+  return await res.json();
+}
+
+export async function fetchSessionLogsApi() {
+  const res = await fetch(`${API_BASE}/session-logs`);
+  if (!res.ok) throw new Error('Failed to fetch session logs');
+  return await res.json();
+}
+
 export async function fetchUserHabitsApi() {
   const res = await fetch(`${API_BASE}/user`);
   if (!res.ok) throw new Error('Failed to fetch user habits');

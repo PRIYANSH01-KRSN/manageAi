@@ -104,7 +104,7 @@ export function Navbar({
 
         <div className="streak-pill">
           <Flame size={14} />
-          <span>{streakCount} Streak</span>
+          <span>{streakCount}-day streak</span>
         </div>
       </div>
     </header>

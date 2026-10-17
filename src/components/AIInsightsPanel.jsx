@@ -1,11 +1,61 @@
 import React from 'react';
 import { INCOMPLETION_REASONS } from '../constants/initialData';
 
-export function AIInsightsPanel({ 
-  reviewHistory = [], 
-  learnedFatigueHours = [], 
+function WeeklyReview({ sessionLogs = [], calibration = {} }) {
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i));
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const logs = sessionLogs.filter((l) => l.dateKey === key);
+    const minutes = logs.reduce((a, l) => a + (l.actualMinutes || Math.round((l.plannedMinutes || 0) * (l.progressPct ?? 100) / 100)), 0);
+    return { key, label: d.toLocaleDateString([], { weekday: 'short' }), minutes, sessions: logs.filter((l) => l.status !== 'NOT_DONE').length };
+  });
+  const max = Math.max(60, ...days.map((d) => d.minutes));
+  const total = days.reduce((a, d) => a + d.minutes, 0);
+  const weekLogs = sessionLogs.filter((l) => days.some((d) => d.key === l.dateKey));
+  const bySubject = {};
+  weekLogs.forEach((l) => {
+    const k = l.subject || 'Other';
+    bySubject[k] = (bySubject[k] || 0) + (l.actualMinutes || l.plannedMinutes || 0);
+  });
+  const paceEntries = Object.entries(calibration).filter(([k, v]) => k !== 'all' && v.samples >= 2);
+
+  return (
+    <div style={{ background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '1.25rem', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+        <strong style={{ fontSize: '0.95rem', color: '#ffffff' }}>This week</strong>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{(total / 60).toFixed(1)}h focused · {weekLogs.filter((l) => l.status !== 'NOT_DONE').length} sessions</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem', height: '90px', marginBottom: '0.75rem' }}>
+        {days.map((d) => (
+          <div key={d.key} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
+            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{d.minutes ? `${(d.minutes / 60).toFixed(1)}h` : ''}</span>
+            <div title={`${d.minutes} min`} style={{ width: '100%', maxWidth: '36px', height: `${Math.max(2, (d.minutes / max) * 60)}px`, background: d.minutes ? '#ffffff' : 'var(--border-subtle)', borderRadius: '3px 3px 0 0' }} />
+            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{d.label}</span>
+          </div>
+        ))}
+      </div>
+      {Object.keys(bySubject).length > 0 && (
+        <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+          By subject: {Object.entries(bySubject).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${(v / 60).toFixed(1)}h`).join(' · ')}
+        </div>
+      )}
+      <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+        {paceEntries.length > 0
+          ? <>Your real pace (learned from timed sessions): {paceEntries.map(([k, v]) => `${k.split(':')[1]} ${v.ratio.toFixed(2)}×`).join(' · ')}. Future estimates are adjusted automatically.</>
+          : 'Use the focus timer for a few sessions and ChronosFlow will learn how long things really take you — per subject.'}
+      </div>
+    </div>
+  );
+}
+
+export function AIInsightsPanel({
+  reviewHistory = [],
+  learnedFatigueHours = [],
   learnedBufferInflation = 1.0,
-  userHabits 
+  userHabits,
+  sessionLogs = [],
+  calibration = {}
 }) {
   const completed = reviewHistory.filter((r) => r.status === 'COMPLETED').length;
   const stalled = reviewHistory.filter((r) => r.status === 'NOT_DONE').length;
@@ -55,6 +105,8 @@ export function AIInsightsPanel({
         </div>
       </div>
 
+      <WeeklyReview sessionLogs={sessionLogs} calibration={calibration} />
+
       {/* Recalibration Log Feed */}
       <div>
         <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.75rem' }}>
@@ -92,7 +144,7 @@ export function AIInsightsPanel({
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <span className="badge">
-                    {rev.status === 'COMPLETED' ? 'Completed' : `Stalled: ${getReasonText(rev.reasonId)}`}
+                    {rev.status === 'COMPLETED' ? 'Completed' : rev.status === 'PARTIAL' ? 'Partly done' : `Stalled: ${getReasonText(rev.reasonId)}`}
                   </span>
                   <span style={{ fontSize: '0.72rem', color: 'var(--text-faint)', fontFamily: 'var(--font-mono)' }}>
                     {new Date(rev.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

@@ -6,13 +6,16 @@ An AI-powered time management and strategy system designed for students, develop
 
 ## Key Features
 
-- **Decision Paralysis Destroyer ("Start Right Now")**: Removes guesswork by highlighting the single immediate optimal task to work on right now, with complete anti-procrastination execution guides.
-- **Minimalist Round Counter Timer**: High-contrast circular progress ring with countdown display, session tracking, and Web Audio API focus soundscapes (Brown Noise, Soft Rain, 10Hz Alpha Waves).
-- **Eisenhower Matrix Backlog Cruncher**: Categorizes goals across Q1 (Do First), Q2 (Deep Mastery), Q3 (Quick Gaps), and Q4 (Low Priority).
-- **Gemini 3.8 Flash Backlog Decomposer**: Converts raw multi-chapter syllabus inputs into 20–45 minute atomic units with specific resources, anticipated roadblocks, and 3-step action paths.
-- **Timetable & Schedule Image OCR**: Ingests timetable photos, extracts lectures and shifts, automatically detects gaps, and injects mandatory 20-minute post-class rest buffers.
-- **Zero-Guilt Adaptive Recalibration**: Analyzes stall reasons (Underestimated Time, Fatigue Zone, Roadblock, Distraction) and recalibrates remaining days without guilt or penalties.
-- **Dedicated SQLite Backend**: Persistent storage using `better-sqlite3` in WAL mode via an Express REST API.
+- **Start Here, Right Now**: one clear next session with a 2-minute starter, an "I can't start" ladder that shrinks it (10 → 5 → 2 min), a timed step-by-step script, if-then plans and a "done when…" check.
+- **Deadline-Aware Planner**: multi-day plan that puts hard work in your peak hours, finishes deadlines a day early, interleaves subjects, adds spaced-recall reviews, respects learn → practice order, and keeps a daily focus cap plus a flex buffer.
+- **Realistic Time Estimates**: estimates from pages / chapters / problems × knowledge level × difficulty, best/likely/worst ranges, warnings for unrealistic guesses, and a learned personal pace per subject from timed sessions.
+- **Daily Check-in**: sleep, energy, mood, stress, personal commitments, evening plans and available hours reshape today's plan (Full / Light / Recovery mode).
+- **Backup Plans**: switch today to Plan B (must-dos) or Plan C (45-min minimum), or tap "Something came up" to re-plan around lost time.
+- **Exam Battle Plan**: chapters + exam date + how well you know each → triaged plan (weak, high-weight first), core-only / skim triage when time is short, mock test and final review.
+- **Protected Life**: guilt-free leisure, wind-down before bed, weekly half-day off, weekend routines.
+- **Zero-Guilt Recalibration**: Done / Partly done / Stalled; each stall reason changes the plan (more time, an unblock session, micro-sprints, fatigue hours), forgiving day streaks, end-of-day wrap-up and a weekly review.
+- **AI (Gemini)**: syllabus decomposition, plan review coach and per-topic session guides — all with offline rule-based fallbacks.
+- **Extras**: calendar (.ics) export, browser reminders, distraction parking lot, timetable photo OCR, SQLite persistence.
 
 ---
 
@@ -58,6 +61,11 @@ npm run dev
 ```
 
 Open your browser at `http://localhost:5173/`.
+
+Run the planner engine tests:
+```bash
+npm test
+```
 
 ---
 

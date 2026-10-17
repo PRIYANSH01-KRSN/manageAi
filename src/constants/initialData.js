@@ -88,7 +88,7 @@ export const INCOMPLETION_REASONS = [
     label: 'Underestimated Time Needed',
     badge: 'Time Drift',
     description: 'The task required more research or problem solving than expected.',
-    adaptiveAction: 'AI will automatically inflate future buffer for this topic by +25%.',
+    adaptiveAction: 'This task gets +25% more time and future sessions get a +15% buffer.',
   },
   {
     id: 'LOW_ENERGY_FATIGUE',
@@ -102,14 +102,14 @@ export const INCOMPLETION_REASONS = [
     label: 'Got Stuck on a Specific Problem',
     badge: 'Roadblock',
     description: 'Encountered a concept, bug, or equation that blocked progress.',
-    adaptiveAction: 'AI will generate a dedicated 15-minute unblocker subtask and resource lookup.',
+    adaptiveAction: 'Adds a 15-minute "unblock" session first, then continues the task.',
   },
   {
     id: 'DIGITAL_DISTRACTION',
     label: 'Distracted by Phone / Socials',
     badge: 'Attention Leak',
     description: 'Lost focus to notifications or impulsive context switching.',
-    adaptiveAction: 'AI will slice the next session into smaller 15m micro-sprints with audio anchor.',
+    adaptiveAction: 'This task switches to 15-minute micro-sprints. Try the Noise soundscape.',
   },
   {
     id: 'UNEXPECTED_INTERRUPT',

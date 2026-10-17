@@ -101,6 +101,30 @@ addColumnIfMissing('tasks', 'task_type', 'TEXT');
 addColumnIfMissing('tasks', 'completed_minutes', 'INTEGER DEFAULT 0');
 addColumnIfMissing('users', 'session_style', "TEXT DEFAULT 'pomodoro'");
 addColumnIfMissing('users', 'daily_focus_cap_minutes', 'INTEGER DEFAULT 300');
+addColumnIfMissing('users', 'preferences', 'TEXT');
+addColumnIfMissing('tasks', 'knowledge_level', 'INTEGER');
+addColumnIfMissing('tasks', 'volume_type', 'TEXT');
+addColumnIfMissing('tasks', 'volume_count', 'INTEGER');
+addColumnIfMissing('tasks', 'depends_on', 'TEXT');
+addColumnIfMissing('tasks', 'group_id', 'TEXT');
+addColumnIfMissing('tasks', 'micro_sprints', 'INTEGER DEFAULT 0');
+addColumnIfMissing('session_reviews', 'kind', 'TEXT');
+addColumnIfMissing('session_reviews', 'subject', 'TEXT');
+addColumnIfMissing('session_reviews', 'task_type', 'TEXT');
+addColumnIfMissing('session_reviews', 'planned_minutes', 'INTEGER');
+addColumnIfMissing('session_reviews', 'actual_minutes', 'INTEGER');
+addColumnIfMissing('session_reviews', 'progress_pct', 'INTEGER');
+
+// Morning check-ins (mood, energy, commitments, evening plans, chosen plan variant).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS daily_checkins (
+    user_id TEXT NOT NULL,
+    date_key TEXT NOT NULL,
+    data TEXT NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, date_key)
+  );
+`);
 
 // Seed default user if not exists
 const defaultUserId = 'default_user';
@@ -120,6 +144,7 @@ export function resetDatabase() {
     DELETE FROM habits;
     DELETE FROM session_reviews;
     DELETE FROM fatigue_hours;
+    DELETE FROM daily_checkins;
     DELETE FROM users;
   `);
 

@@ -104,6 +104,64 @@ export function EnergyHabitSettings({ userHabits = {}, onUpdateHabits }) {
             <option value="deep">Deep work (45–50 min)</option>
           </select>
         </div>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>
+            Protected Leisure: {userHabits.leisureMinutes ?? 60} min/day
+          </label>
+          <input type="range" min="0" max="180" step="15" value={userHabits.leisureMinutes ?? 60} onChange={(e) => onUpdateHabits({ ...userHabits, leisureMinutes: Number(e.target.value) })} style={{ width: '100%', accentColor: '#ffffff' }} />
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Leisure Time</label>
+          <select className="input-field" value={userHabits.leisureTime || 'evening'} onChange={(e) => onUpdateHabits({ ...userHabits, leisureTime: e.target.value })}>
+            <option value="evening">Evening (before wind-down)</option>
+            <option value="afternoon">Late afternoon (from 17:00)</option>
+          </select>
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>
+            Wind-down Before Bed: {userHabits.windDownMinutes ?? 45} min
+          </label>
+          <input type="range" min="0" max="90" step="15" value={userHabits.windDownMinutes ?? 45} onChange={(e) => onUpdateHabits({ ...userHabits, windDownMinutes: Number(e.target.value) })} style={{ width: '100%', accentColor: '#ffffff' }} />
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>
+            Flex Reserve: {userHabits.flexPercent ?? 15}% of study time
+          </label>
+          <input type="range" min="0" max="30" step="5" value={userHabits.flexPercent ?? 15} onChange={(e) => onUpdateHabits({ ...userHabits, flexPercent: Number(e.target.value) })} style={{ width: '100%', accentColor: '#ffffff' }} />
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Weekly Half-Day Off</label>
+          <select className="input-field" value={userHabits.weeklyOffDay ?? ''} onChange={(e) => onUpdateHabits({ ...userHabits, weeklyOffDay: e.target.value === '' ? null : Number(e.target.value) })}>
+            <option value="">None</option>
+            {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((d, i) => (
+              <option key={d} value={i}>{d} afternoon</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Weekend Wake / Sleep</label>
+          <div style={{ display: 'flex', gap: '0.35rem' }}>
+            <input type="time" className="input-field" value={userHabits.weekendWakeTime || ''} onChange={(e) => onUpdateHabits({ ...userHabits, weekendWakeTime: e.target.value })} />
+            <input type="time" className="input-field" value={userHabits.weekendSleepTime || ''} onChange={(e) => onUpdateHabits({ ...userHabits, weekendSleepTime: e.target.value })} />
+          </div>
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Session Reminders</label>
+          <button
+            type="button"
+            className="btn-secondary"
+            style={{ width: '100%' }}
+            onClick={async () => {
+              if (!userHabits.remindersEnabled && typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
+                const result = await Notification.requestPermission().catch(() => 'denied');
+                if (result !== 'granted') return;
+              }
+              onUpdateHabits({ ...userHabits, remindersEnabled: !userHabits.remindersEnabled });
+            }}
+          >
+            {userHabits.remindersEnabled ? 'On — 5 min before each session' : 'Turn on browser reminders'}
+          </button>
+        </div>
       </div>
 
       {/* Blocked Daily Habits */}

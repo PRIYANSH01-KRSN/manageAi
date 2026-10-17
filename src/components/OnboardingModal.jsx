@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Check, ArrowRight, ArrowLeft, Sun, Moon, Zap, Shield, Clock } from 'lucide-react';
+import { X, Check, ArrowRight, ArrowLeft, Sun, Moon } from 'lucide-react';
 
 export function OnboardingModal({ isOpen, onClose, onSaveRoutine }) {
   const [step, setStep] = useState(1);
@@ -15,7 +15,8 @@ export function OnboardingModal({ isOpen, onClose, onSaveRoutine }) {
   const [includeLunch, setIncludeLunch] = useState(true);
   const [includeDinner, setIncludeDinner] = useState(true);
   const [includeExercise, setIncludeExercise] = useState(false);
-  const [dailyCommuteMinutes, setDailyCommuteMinutes] = useState(30);
+  const [dailyCommuteMinutes] = useState(30);
+  const [leisureMinutes, setLeisureMinutes] = useState(60);
 
   if (!isOpen) return null;
 
@@ -44,6 +45,7 @@ export function OnboardingModal({ isOpen, onClose, onSaveRoutine }) {
       chronotype,
       distractionFactor: factor,
       sessionStyle,
+      leisureMinutes,
       habits,
     });
     onClose();
@@ -196,6 +198,12 @@ export function OnboardingModal({ isOpen, onClose, onSaveRoutine }) {
                 </div>
                 <input type="checkbox" checked={includeExercise} onChange={(e) => setIncludeExercise(e.target.checked)} style={{ accentColor: '#ffffff', width: '16px', height: '16px' }} />
               </label>
+
+              <div style={{ padding: '0.85rem 1rem', background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
+                <div style={{ color: '#ffffff', fontSize: '0.85rem', fontWeight: 600 }}>Guilt-free leisure every day: {leisureMinutes} min</div>
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginBottom: '0.4rem' }}>Games, shows, friends — planned and protected, so rest never feels "stolen"</div>
+                <input type="range" min="0" max="180" step="15" value={leisureMinutes} onChange={(e) => setLeisureMinutes(Number(e.target.value))} style={{ width: '100%', accentColor: '#ffffff' }} />
+              </div>
             </div>
           </div>
         )}
