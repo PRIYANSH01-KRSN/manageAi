@@ -44,17 +44,137 @@ export function App() {
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
 
-  // Core Data States (Synced with SQLite)
-  const [userHabits, setUserHabits] = useState(INITIAL_USER_HABITS);
-  const [fixedSchedule, setFixedSchedule] = useState([]);
-  const [tasks, setTasks] = useState([]);
-  const [reviewHistory, setReviewHistory] = useState([]);
-  const [learnedFatigueHours, setLearnedFatigueHours] = useState([]);
-  const [learnedBufferInflation, setLearnedBufferInflation] = useState(1.0);
-  const [streakCount, setStreakCount] = useState(0);
+  // Core Data States (Dual Persistence: localStorage + SQLite Sync)
+  const [userHabits, setUserHabits] = useState(() => {
+    try {
+      const saved = localStorage.getItem('cf_user_habits');
+      return saved ? JSON.parse(saved) : INITIAL_USER_HABITS;
+    } catch {
+      return INITIAL_USER_HABITS;
+    }
+  });
+
+  const [fixedSchedule, setFixedSchedule] = useState(() => {
+    try {
+      const saved = localStorage.getItem('cf_fixed_schedule');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [tasks, setTasks] = useState(() => {
+    try {
+      const saved = localStorage.getItem('cf_tasks');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [reviewHistory, setReviewHistory] = useState(() => {
+    try {
+      const saved = localStorage.getItem('cf_review_history');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [learnedFatigueHours, setLearnedFatigueHours] = useState(() => {
+    try {
+      const saved = localStorage.getItem('cf_fatigue_hours');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [learnedBufferInflation, setLearnedBufferInflation] = useState(() => {
+    try {
+      const saved = localStorage.getItem('cf_buffer_inflation');
+      return saved ? parseFloat(saved) : 1.0;
+    } catch {
+      return 1.0;
+    }
+  });
+
+  const [streakCount, setStreakCount] = useState(() => {
+    try {
+      const saved = localStorage.getItem('cf_streak');
+      return saved ? parseInt(saved, 10) : 0;
+    } catch {
+      return 0;
+    }
+  });
 
   // Review Modal State
   const [activeReviewBlock, setActiveReviewBlock] = useState(null);
+
+  // Sync state changes directly to localStorage immediately so data never resets on refresh
+  useEffect(() => {
+    try {
+      localStorage.setItem('cf_tasks', JSON.stringify(tasks));
+    } catch (e) {
+      console.warn('Storage error', e);
+    }
+  }, [tasks]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('cf_fixed_schedule', JSON.stringify(fixedSchedule));
+    } catch (e) {
+      console.warn('Storage error', e);
+    }
+  }, [fixedSchedule]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('cf_user_habits', JSON.stringify(userHabits));
+    } catch (e) {
+      console.warn('Storage error', e);
+    }
+  }, [userHabits]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('cf_review_history', JSON.stringify(reviewHistory));
+    } catch (e) {
+      console.warn('Storage error', e);
+    }
+  }, [reviewHistory]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('cf_fatigue_hours', JSON.stringify(learnedFatigueHours));
+    } catch (e) {
+      console.warn('Storage error', e);
+    }
+  }, [learnedFatigueHours]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('cf_buffer_inflation', learnedBufferInflation.toString());
+    } catch (e) {
+      console.warn('Storage error', e);
+    }
+  }, [learnedBufferInflation]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('cf_streak', streakCount.toString());
+    } catch (e) {
+      console.warn('Storage error', e);
+    }
+  }, [streakCount]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('cf_target_deadline', targetDeadlineDays.toString());
+    } catch (e) {
+      console.warn('Storage error', e);
+    }
+  }, [targetDeadlineDays]);
 
   // First-time onboarding trigger
   useEffect(() => {
@@ -64,7 +184,7 @@ export function App() {
     }
   }, []);
 
-  // 1. Initial Load: Fetch everything from SQLite backend
+  // Initial Load & Bidirectional Sync with SQLite backend
   useEffect(() => {
     async function loadDataFromDb() {
       try {
@@ -79,27 +199,36 @@ export function App() {
             fetchReviewsApi().catch(() => null),
           ]);
 
-          if (habitsData) {
+          if (habitsData && habitsData.habits && habitsData.habits.length > 0) {
             setUserHabits(habitsData);
             if (habitsData.learnedFatigueHours) {
               setLearnedFatigueHours(habitsData.learnedFatigueHours);
             }
           }
+
           if (fixedEvents && fixedEvents.length > 0) {
             setFixedSchedule(fixedEvents);
           }
+
+          // If SQLite has tasks, use them. If SQLite is empty but local has tasks, sync to SQLite!
           if (dbTasks && dbTasks.length > 0) {
             setTasks(dbTasks);
+          } else {
+            const localSavedTasks = JSON.parse(localStorage.getItem('cf_tasks') || '[]');
+            if (localSavedTasks.length > 0) {
+              await createBatchTasksApi(localSavedTasks).catch(console.error);
+            }
           }
-          if (reviewsData) {
-            setReviewHistory(reviewsData.reviews || []);
+
+          if (reviewsData && reviewsData.reviews && reviewsData.reviews.length > 0) {
+            setReviewHistory(reviewsData.reviews);
             if (reviewsData.learnedBufferInflation) {
               setLearnedBufferInflation(reviewsData.learnedBufferInflation);
             }
           }
         }
       } catch (err) {
-        console.warn('Backend connection error:', err);
+        console.warn('Backend connection notice:', err.message);
       }
     }
     loadDataFromDb();

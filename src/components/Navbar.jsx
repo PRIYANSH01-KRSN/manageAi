@@ -24,7 +24,7 @@ export function Navbar({
         <h1 className="brand-title">Chronos</h1>
         <div className="db-badge" title="Persistent SQLite Database">
           <span className="db-indicator" style={{ background: backendOnline ? '#ffffff' : '#71717a' }} />
-          <span>{backendOnline ? 'SQLite Connected (3001)' : 'Offline Local'}</span>
+          <span>{backendOnline ? 'SQLite DB (Port 3001)' : 'Persistent Storage Active'}</span>
         </div>
       </div>
 
