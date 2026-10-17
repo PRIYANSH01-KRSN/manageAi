@@ -13,8 +13,13 @@ import { createSupabaseStore } from './store/supabaseStore.js';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+// Accept the project URL even if it was pasted with a path like /rest/v1/.
+const SUPABASE_URL = String(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '')
+  .trim()
+  .replace(/\/+$/, '')
+  .replace(/\/(rest|auth)\/v1$/i, '')
+  .replace(/\/+$/, '');
+const SUPABASE_ANON_KEY = String(process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '').trim();
 const USE_SUPABASE = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 const LOCAL_USER_ID = 'default_user';
 

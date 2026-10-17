@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { X, LogIn, Mail } from 'lucide-react';
-import { supabase } from '../services/supabaseClient';
+import { supabase, supabaseUrl, supabaseAnonKey } from '../services/supabaseClient';
 
 export function AuthModal({ isOpen, onClose }) {
   const [mode, setMode] = useState('signin'); // signin | signup | reset
@@ -13,9 +13,7 @@ export function AuthModal({ isOpen, onClose }) {
   // Only offer Google when it's switched on in Supabase (otherwise it lands on an error page).
   useEffect(() => {
     if (!isOpen) return;
-    const url = import.meta.env.VITE_SUPABASE_URL;
-    const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    fetch(`${url}/auth/v1/settings`, { headers: { apikey: key } })
+    fetch(`${supabaseUrl}/auth/v1/settings`, { headers: { apikey: supabaseAnonKey } })
       .then((r) => r.json())
       .then((s) => setGoogleEnabled(Boolean(s?.external?.google)))
       .catch(() => setGoogleEnabled(false));
