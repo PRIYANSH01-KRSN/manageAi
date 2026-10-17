@@ -29,5 +29,8 @@
   },
   "optionalDependencies": {
     "better-sqlite3": "^13.0.3"
+  },
+  "engines": {
+    "node": "22.x"
   }
 }

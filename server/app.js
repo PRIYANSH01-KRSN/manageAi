@@ -46,6 +46,9 @@ async function attachUserAndStore(req, res, next) {
       if (error || !data?.user) return res.status(401).json({ error: 'Your session expired. Please sign in again.' });
       req.userId = data.user.id;
       req.store = createSupabaseStore(sb);
+    } else if (process.env.VERCEL) {
+      // Serverless has a read-only filesystem: SQLite can't work there.
+      return res.status(503).json({ error: 'Server storage is not configured. Set SUPABASE_URL and SUPABASE_ANON_KEY in Vercel and redeploy.' });
     } else {
       if (!sqliteStorePromise) {
         sqliteStorePromise = import('./store/sqliteStore.js').then((m) => m.createSqliteStore());
@@ -184,7 +187,7 @@ function normalizeFixedEvent(ev, idx = 0) {
 app.get('/api/status', (req, res) => {
   res.json({
     status: 'online',
-    mode: USE_SUPABASE ? 'supabase' : 'sqlite',
+    mode: USE_SUPABASE ? 'supabase' : process.env.VERCEL ? 'unconfigured' : 'sqlite',
     authRequired: USE_SUPABASE,
     aiEnabled: Boolean(GEMINI_API_KEY),
     aiModel: GEMINI_API_KEY ? `Google ${GEMINI_MODEL}` : 'AI disabled (no GEMINI_API_KEY)',
