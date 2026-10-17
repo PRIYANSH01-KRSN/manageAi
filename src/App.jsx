@@ -7,6 +7,7 @@ import { TimetableImporter } from './components/TimetableImporter';
 import { AIInsightsPanel } from './components/AIInsightsPanel';
 import { EnergyHabitSettings } from './components/EnergyHabitSettings';
 import { ReviewModal } from './components/ReviewModal';
+import { OnboardingModal } from './components/OnboardingModal';
 
 import { 
   checkBackendStatus, 
@@ -21,7 +22,8 @@ import {
   createBatchTasksApi,
   deleteTaskApi,
   fetchReviewsApi,
-  submitReviewApi
+  submitReviewApi,
+  crunchBacklogWithGeminiApi
 } from './services/apiClient';
 
 import { generateRealisticSchedule } from './services/schedulerEngine';
@@ -37,6 +39,8 @@ export function App() {
   const [activeTab, setActiveTab] = useState('focus'); // focus, backlog, timeline, timetable, analytics, habits
   const [activeDay, setActiveDay] = useState(1); // 1 = Monday
   const [backendOnline, setBackendOnline] = useState(false);
+  const [targetDeadlineDays, setTargetDeadlineDays] = useState(3);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
 
   // Core Data States (Synced with SQLite)
   const [userHabits, setUserHabits] = useState(INITIAL_USER_HABITS);
@@ -49,6 +53,14 @@ export function App() {
 
   // Review Modal State
   const [activeReviewBlock, setActiveReviewBlock] = useState(null);
+
+  // First-time onboarding trigger
+  useEffect(() => {
+    const done = localStorage.getItem('cf_onboarding_completed');
+    if (!done) {
+      setIsOnboardingOpen(true);
+    }
+  }, []);
 
   // 1. Initial Load: Fetch everything from SQLite backend
   useEffect(() => {
@@ -300,6 +312,22 @@ export function App() {
     }
   };
 
+  const handleSaveRoutine = async (routineData) => {
+    const updated = {
+      ...userHabits,
+      wakeTime: routineData.wakeTime,
+      sleepTime: routineData.sleepTime,
+      chronotype: routineData.chronotype,
+      distractionFactor: routineData.distractionFactor,
+      habits: routineData.habits,
+    };
+    setUserHabits(updated);
+    localStorage.setItem('cf_onboarding_completed', 'true');
+    if (backendOnline) {
+      await saveUserHabitsApi(updated).catch(console.error);
+    }
+  };
+
   return (
     <div className="app-root">
       {/* Top Monochrome Navbar with Live SQLite Connection */}
@@ -309,6 +337,7 @@ export function App() {
         streakCount={streakCount}
         backendOnline={backendOnline}
         taskCount={tasks.length}
+        onOpenOnboarding={() => setIsOnboardingOpen(true)}
       />
 
       <main className="main-content">
@@ -332,13 +361,15 @@ export function App() {
           </div>
         )}
 
-        {/* VIEW 2: BACKLOG CRUNCHER */}
+        {/* VIEW 2: BACKLOG CRUNCHER & STRATEGIC PLANNER */}
         {activeTab === 'backlog' && (
           <BacklogCruncher
             tasks={tasks}
             onAddTask={handleAddTask}
             onDeleteTask={handleDeleteTask}
             onGenerateBatchAI={handleBatchAI}
+            targetDeadlineDays={targetDeadlineDays}
+            onUpdateTargetDeadlineDays={setTargetDeadlineDays}
           />
         )}
 
@@ -384,6 +415,13 @@ export function App() {
           />
         )}
       </main>
+
+      {/* Routine Setup & Daily Analysis Questionnaire */}
+      <OnboardingModal
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+        onSaveRoutine={handleSaveRoutine}
+      />
 
       {/* Zero-Guilt Stall Review Modal */}
       {activeReviewBlock && (

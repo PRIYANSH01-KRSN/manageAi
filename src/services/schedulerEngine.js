@@ -206,26 +206,24 @@ export function generateRealisticSchedule({
     const rawMinutes = task.estimatedMinutes || 45;
     const bufferedMinutes = Math.round(rawMinutes * baseDistraction);
 
-    // If task is very large (> 60m), slice into bite-sized units
-    if (bufferedMinutes > 65) {
-      const halfRaw = Math.round(rawMinutes / 2);
-      const halfBuffered = Math.round(halfRaw * baseDistraction);
-      taskQueue.push({
-        ...task,
-        id: `${task.id}-part1`,
-        title: `${task.title} (Part 1 - Foundations)`,
-        estimatedMinutes: halfRaw,
-        bufferedMinutes: halfBuffered,
-        isPart: 1,
-      });
-      taskQueue.push({
-        ...task,
-        id: `${task.id}-part2`,
-        title: `${task.title} (Part 2 - Problem Set / Build)`,
-        estimatedMinutes: halfRaw,
-        bufferedMinutes: halfBuffered,
-        isPart: 2,
-      });
+    // If task is large (> 50m), slice into atomic 40-50 min digestible sessions
+    if (rawMinutes > 50) {
+      const chunkSize = 45;
+      const numParts = Math.ceil(rawMinutes / chunkSize);
+      const perPartRaw = Math.round(rawMinutes / numParts);
+      const perPartBuffered = Math.round(perPartRaw * baseDistraction);
+
+      for (let p = 1; p <= numParts; p++) {
+        taskQueue.push({
+          ...task,
+          id: `${task.id}-part${p}`,
+          title: `${task.title} (Part ${p}/${numParts})`,
+          estimatedMinutes: perPartRaw,
+          bufferedMinutes: perPartBuffered,
+          isPart: p,
+          totalParts: numParts,
+        });
+      }
     } else {
       taskQueue.push({
         ...task,

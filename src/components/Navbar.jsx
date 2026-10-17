@@ -14,7 +14,8 @@ export function Navbar({
   setActiveTab, 
   streakCount, 
   backendOnline,
-  taskCount = 0
+  taskCount = 0,
+  onOpenOnboarding
 }) {
   return (
     <header className="app-header">
@@ -77,8 +78,19 @@ export function Navbar({
         </button>
       </nav>
 
-      {/* Right Side Streak */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+      {/* Right Side Streak & Routine Setup */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+        <button
+          onClick={onOpenOnboarding}
+          className="btn-secondary"
+          style={{ padding: '0.35rem 0.75rem', fontSize: '0.78rem' }}
+          title="Analyze and calibrate daily routine"
+          id="routine-setup-nav-btn"
+        >
+          <Sliders size={13} />
+          <span>Routine Setup</span>
+        </button>
+
         <div className="streak-pill">
           <Flame size={14} />
           <span>{streakCount} Streak</span>
