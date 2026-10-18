@@ -37,7 +37,7 @@ export function Navbar({
   return (
     <header className="app-header">
       <div className="brand-wrapper">
-        <h1 className="brand-title">Chronos</h1>
+        <h1 className="brand-title">Manage by AI</h1>
         <div className="db-badge" title="Where your plan is saved">
           <span className="db-indicator" style={{ background: backendOnline ? 'var(--fg)' : 'var(--text-muted)' }} />
           <span>{storageLabel || (backendOnline ? 'Synced' : 'Saved on this device')}</span>

@@ -52,6 +52,8 @@ export const fetchAICoachApi = (summary) => apiFetch('/ai/coach', { method: 'POS
 export const fetchAITaskCoachApi = (task, minutes, context) => apiFetch('/ai/task-coach', { method: 'POST', body: { task, minutes, context } });
 
 export const fetchAITopicCheckApi = (subject, units) => apiFetch('/ai/topic-check', { method: 'POST', body: { subject, units } });
+export const quickTaskApi = (text) => apiFetch('/ai/quick-task', { method: 'POST', body: { text } });
+export const fetchAiHealthApi = () => apiFetch('/ai-health');
 
 // Stuck list
 export const fetchStuckApi = () => apiFetch('/stuck');

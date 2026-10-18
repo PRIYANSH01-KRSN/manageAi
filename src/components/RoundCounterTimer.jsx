@@ -260,12 +260,19 @@ export function RoundCounterTimer({
             </div>
           </div>
 
+          {finished && currentBlock.budget && (
+            <div style={{ marginTop: '1rem', textAlign: 'center', maxWidth: '320px', fontSize: '0.9rem', color: 'var(--fg)', lineHeight: 1.5 }} role="status">
+              <strong>Today's budget is spent — you're done with this for today.</strong>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Tap Done or Partly done; anything left is planned for another day.</div>
+            </div>
+          )}
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1.25rem', flexWrap: 'wrap', justifyContent: 'center' }}>
             {!finished ? (
               <button className="btn-primary" onClick={() => setIsActive(!isActive)} id="round-timer-toggle-btn">
                 {isActive ? <><Pause size={16} /> Pause</> : <><Play size={16} fill="currentColor" /> {elapsedSec > 0 ? 'Resume' : 'Start'}</>}
               </button>
-            ) : (
+            ) : currentBlock.budget ? null : (
               <button className="btn-secondary" onClick={() => { setSecondsLeft(10 * 60); setIsActive(true); }}>
                 <Plus size={14} /> 10 more min
               </button>

@@ -9,7 +9,7 @@
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "node --test tests/planner.test.js tests/energy.test.js tests/breakdown.test.js tests/recalibration.test.js"
+    "test": "node --test tests/planner.test.js tests/energy.test.js tests/breakdown.test.js tests/recalibration.test.js tests/quicktask.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",

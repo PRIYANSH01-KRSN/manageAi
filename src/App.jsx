@@ -42,7 +42,7 @@ import {
 } from './services/apiClient';
 
 import { buildStudyPlan, summarizePlanForAI, toDateKey, focusCapacityUntil, formatMinutesToTime } from './services/plannerEngine';
-import { makeEnergyLogEntry } from './services/energyMatcher';
+import { makeEnergyLogEntry, inferEnergy } from './services/energyMatcher';
 import { buildTaskCoaching } from './services/taskCoach';
 import { FocusMyEnergy } from './components/FocusMyEnergy';
 import { computeCalibration, calibrationRatioFor } from './services/estimationEngine';
@@ -346,8 +346,10 @@ export function App() {
 
   // Start the energy-matched task right now, sized to the student's current energy.
   // Progress is credited to the task, so the rest of the plan re-adjusts afterwards.
-  const handleStartEnergyTask = (task, minutes) => {
+  const handleStartEnergyTask = (task, minutes, { budget = false, starter } = {}) => {
     const startMin = now.getHours() * 60 + now.getMinutes();
+    const coaching = buildTaskCoaching(task, { startMin, minutes, dayContext: todayContext });
+    if (starter) coaching.starter = starter;
     setPreferredSessionId(null);
     setAdHocBlock({
       id: `now-${task.id}-${Date.now()}`,
@@ -366,8 +368,9 @@ export function App() {
       rawDuration: minutes,
       progressMinutes: minutes,
       bufferMinutes: 0,
-      reason: 'Picked by Focus My Energy for how you feel right now',
-      coaching: buildTaskCoaching(task, { startMin, minutes, dayContext: todayContext }),
+      reason: budget ? `Today's time budget: ${minutes} min — when the timer hits zero, you're done with this for today` : 'Picked by Focus My Energy for how you feel right now',
+      budget,
+      coaching,
       taskData: task,
     });
     setActiveTab('focus');
@@ -679,6 +682,18 @@ export function App() {
     ? stuckItems.filter((it) => !it.resolved && (it.taskId === currentActionBlock.taskId || (it.groupId && it.groupId === currentActionBlock.taskData?.groupId)))
     : [];
 
+  // Current energy (live self-report > energy profile > morning check-in > time of day).
+  const currentEnergy = useMemo(
+    () => inferEnergy({ latestReport: (userHabits.energyLog || [])[0], profile: userHabits.energyProfile, checkin: todayContext, chronotype: userHabits.chronotype, fatigueHours: learnedFatigueHours, now }),
+    [userHabits.energyLog, userHabits.energyProfile, userHabits.chronotype, todayContext, learnedFatigueHours, now]
+  );
+
+  // Quick add: AI-estimated task, optionally started right now as a time-budgeted session.
+  const handleQuickCreate = async ({ task, startNow, sessionMinutes, firstStep }) => {
+    await handleAddTask(task);
+    if (startNow) handleStartEnergyTask(task, sessionMinutes, { budget: true, starter: firstStep });
+  };
+
   // Anti-fragile: if the remaining work no longer fits, propose the smallest cuts.
   const triage = useMemo(() => proposeOverloadTriage(tasks, plan), [tasks, plan]);
 
@@ -788,6 +803,8 @@ export function App() {
             onSeeFullPlan={() => setActiveTab('timeline')}
             onBattlePlan={() => setIsBattlePlanOpen(true)}
             onBreakDown={() => setBreakdownTask(null)}
+            energy={currentEnergy}
+            onQuickCreate={handleQuickCreate}
           />
         )}
 

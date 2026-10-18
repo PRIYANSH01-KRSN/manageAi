@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Play, Check, Feather, CalendarX, ArrowRight, Heart, Scissors, Target, CheckCircle2 } from 'lucide-react';
+import { QuickAdd } from './QuickAdd';
 
 const card = { background: 'var(--bg-card)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-lg)', padding: '1.5rem' };
 const fmtDate = (key) => new Date(`${key}T00:00:00`).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
@@ -31,6 +32,8 @@ export function TodayScreen({
   onSeeFullPlan,
   onBattlePlan,
   onBreakDown,
+  energy,
+  onQuickCreate,
 }) {
   const [cantOpen, setCantOpen] = useState(false);
   const deadline = nearestDeadline(tasks, todayKey);
@@ -57,6 +60,13 @@ export function TodayScreen({
           <button onClick={onDismissWelcome} className="btn-secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.78rem' }}>Got it</button>
         </div>
       )}
+
+      <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', padding: '0 0.25rem' }}>
+        <strong style={{ color: 'var(--fg)' }}>Energy Sequencer:</strong> your most important work goes first, while you're sharpest. Whether it takes 40 or 70 minutes matters less than doing it at the right time.
+      </div>
+
+      {/* One line in, a realistic, energy-matched session out */}
+      {onQuickCreate && <QuickAdd energy={energy} onCreate={onQuickCreate} />}
 
       {/* Days left */}
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', padding: '0 0.25rem' }}>

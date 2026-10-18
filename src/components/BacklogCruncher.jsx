@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Plus, Trash2, Sparkles, Clock, Calendar, AlertTriangle, CheckCircle2, Target, Scissors } from 'lucide-react';
 import { EISENHOWER_QUADRANTS } from '../constants/initialData';
 import { VOLUME_TYPES, KNOWLEDGE_LEVELS, estimateFromVolume, sanityCheckEstimate, calibrationRatioFor } from '../services/estimationEngine';
+import { withPlanningBuffer } from '../services/quickTask';
 
 export function BacklogCruncher({
   tasks = [],
@@ -22,6 +23,12 @@ export function BacklogCruncher({
   const [title, setTitle] = useState('');
   const [quadrant, setQuadrant] = useState('Q1');
   const [estimatedMinutes, setEstimatedMinutes] = useState(60);
+  // 'user' = the student's own guess (gets the planning-fallacy buffer); 'model' = our estimate.
+  const [estimateSource, setEstimateSource] = useState('user');
+  const setUserMinutes = (m) => {
+    setEstimatedMinutes(m);
+    setEstimateSource('user');
+  };
   const [isUncertain, setIsUncertain] = useState(false);
   const [materials, setMaterials] = useState('');
   const [roadblock, setRoadblock] = useState('');
@@ -72,7 +79,8 @@ export function BacklogCruncher({
     if (!title.trim()) return;
 
     // Unsure estimates use the volume model when available, else a generous difficulty-based default.
-    const finalMinutes = isUncertain ? volumeEstimate?.planned || 60 + difficulty * 15 : Number(estimatedMinutes) || 45;
+    const userBuffer = !isUncertain && estimateSource === 'user' ? withPlanningBuffer(Number(estimatedMinutes) || 45, 'userGuess') : null;
+    const finalMinutes = isUncertain ? volumeEstimate?.planned || 60 + difficulty * 15 : userBuffer ? userBuffer.planned : Number(estimatedMinutes) || 45;
 
     onAddTask({
       id: `task-${Date.now()}`,
@@ -99,6 +107,7 @@ export function BacklogCruncher({
         'Step 3: Document summary bullets and log progress (5m)',
       ],
       stuckProtocol: 'If stuck for > 7 minutes, record the specific question and move to the next sub-step.',
+      meta: userBuffer ? { timeNote: userBuffer.reason, bufferIncluded: true } : undefined,
     });
 
     setTitle('');
@@ -305,7 +314,7 @@ export function BacklogCruncher({
                     max="240" 
                     step="15" 
                     value={estimatedMinutes} 
-                    onChange={(e) => setEstimatedMinutes(Number(e.target.value))}
+                    onChange={(e) => setUserMinutes(Number(e.target.value))}
                     style={{ width: '100%', accentColor: 'var(--fg)' }} 
                   />
                   {/* Quick Preset Buttons */}
@@ -314,7 +323,7 @@ export function BacklogCruncher({
                       <button
                         key={m}
                         type="button"
-                        onClick={() => setEstimatedMinutes(m)}
+                        onClick={() => setUserMinutes(m)}
                         style={{
                           background: estimatedMinutes === m ? 'var(--fg)' : 'transparent',
                           color: estimatedMinutes === m ? 'var(--fg-inverse)' : 'var(--text-muted)',
@@ -329,10 +338,15 @@ export function BacklogCruncher({
                       </button>
                     ))}
                   </div>
+                  {estimateSource === 'user' && (
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.45rem', lineHeight: 1.45 }}>
+                      We'll plan <strong style={{ color: 'var(--fg)' }}>{withPlanningBuffer(Number(estimatedMinutes) || 45, 'userGuess').planned}m</strong>. {withPlanningBuffer(Number(estimatedMinutes) || 45, 'userGuess').reason}
+                    </div>
+                  )}
                 </>
               ) : (
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-faint)', fontStyle: 'italic', padding: '0.4rem 0' }}>
-                  ⚡ AI will dynamically gauge complexity and slice into 40m atomic chunks.
+                  We'll estimate it for you from the amount of material and difficulty (fill in the box below).
                 </div>
               )}
             </div>
@@ -359,7 +373,7 @@ export function BacklogCruncher({
                     Realistic: <strong style={{ color: 'var(--fg)' }}>{volumeEstimate.planned}m</strong> (best {volumeEstimate.optimistic}m · worst {volumeEstimate.pessimistic}m)
                     <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-faint)' }}>{volumeEstimate.explanation}</span>
                   </span>
-                  <button type="button" className="btn-secondary" style={{ padding: '0.25rem 0.6rem', fontSize: '0.72rem' }} onClick={() => { setIsUncertain(false); setEstimatedMinutes(volumeEstimate.planned); }}>
+                  <button type="button" className="btn-secondary" style={{ padding: '0.25rem 0.6rem', fontSize: '0.72rem' }} onClick={() => { setIsUncertain(false); setEstimatedMinutes(volumeEstimate.planned); setEstimateSource('model'); }}>
                     Use {volumeEstimate.planned}m
                   </button>
                 </div>
@@ -370,7 +384,7 @@ export function BacklogCruncher({
                   <span>
                     {w.text}
                     {w.suggested && w.suggested !== Number(estimatedMinutes) && (
-                      <button type="button" onClick={() => setEstimatedMinutes(w.suggested)} style={{ marginLeft: '0.4rem', background: 'transparent', border: 'none', color: 'var(--fg)', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.75rem' }}>
+                      <button type="button" onClick={() => { setEstimatedMinutes(w.suggested); setEstimateSource('model'); }} style={{ marginLeft: '0.4rem', background: 'transparent', border: 'none', color: 'var(--fg)', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.75rem' }}>
                         Use {w.suggested}m
                       </button>
                     )}
