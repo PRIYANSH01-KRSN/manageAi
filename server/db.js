@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const dbPath = path.join(__dirname, 'chronosflow.db');
+const dbPath = process.env.SQLITE_PATH || path.join(__dirname, 'chronosflow.db');
 
 export const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
@@ -108,6 +108,21 @@ addColumnIfMissing('tasks', 'volume_count', 'INTEGER');
 addColumnIfMissing('tasks', 'depends_on', 'TEXT');
 addColumnIfMissing('tasks', 'group_id', 'TEXT');
 addColumnIfMissing('tasks', 'micro_sprints', 'INTEGER DEFAULT 0');
+addColumnIfMissing('tasks', 'meta', 'TEXT');
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS stuck_items (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    task_id TEXT,
+    group_id TEXT,
+    task_title TEXT,
+    kind TEXT NOT NULL DEFAULT 'concept',
+    note TEXT NOT NULL,
+    resolved INTEGER NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+`);
 addColumnIfMissing('session_reviews', 'kind', 'TEXT');
 addColumnIfMissing('session_reviews', 'subject', 'TEXT');
 addColumnIfMissing('session_reviews', 'task_type', 'TEXT');
@@ -145,6 +160,7 @@ export function resetDatabase() {
     DELETE FROM session_reviews;
     DELETE FROM fatigue_hours;
     DELETE FROM daily_checkins;
+    DELETE FROM stuck_items;
     DELETE FROM users;
   `);
 

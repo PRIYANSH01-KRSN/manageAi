@@ -382,6 +382,18 @@ function scoreCandidate({ day, i, n, draft, urgency, ctx }) {
   // Balance load across days.
   score -= (day.focusMinutes / Math.max(60, ctx.dailyCap)) * 0.35;
 
+  // Continuity: a step should follow soon after the step it builds on (same or next day).
+  if (draft.anchorDay !== undefined && draft.anchorDay !== null) {
+    score -= Math.max(0, day.dayIndex - draft.anchorDay) * 0.2;
+  }
+
+  // Keep chains moving: when more work is queued behind this step, every idle hour
+  // before it pushes the whole chain later — so prefer earlier slots (more so near a deadline).
+  if (draft.chainContinues && draft.earliestAbs !== undefined) {
+    const idleHours = Math.max(0, day.dayIndex * 1440 + startMin - draft.earliestAbs) / 60;
+    score -= Math.min(idleHours, 24) * 0.008 * (0.5 + urgency);
+  }
+
   // Distributed practice: discourage stacking the same task on one day unless urgent.
   const sameTaskToday = day.sessions.filter((s) => s.taskId === draft.taskId).length;
   score -= sameTaskToday * 0.18 * (1 - urgency);
@@ -542,7 +554,9 @@ export function buildStudyPlan({
   const deadlineIndexFor = (task) => {
     if (task.deadline) {
       // Finish the day *before* the due/exam date so the last day is for review, not cramming.
-      return clamp(daysUntil(task.deadline) - 1, 0, horizon - 1);
+      // Recall reviews themselves may land on the exam morning.
+      const reviewOk = task.meta?.kind === 'review' ? 0 : 1;
+      return clamp(daysUntil(task.deadline) - reviewOk, 0, horizon - 1);
     }
     if (task.quadrant === 'Q1') return Math.min(1, horizon - 1);
     if (task.quadrant === 'Q3') return Math.min(2, horizon - 1);
@@ -560,37 +574,62 @@ export function buildStudyPlan({
       const estimate = Number(task.estimatedMinutes) || 45;
       const remainingEstimate = Math.max(0, estimate - (task.completedMinutes || 0));
       const remaining = roundUp(remainingEstimate * ratio, SLOT);
-      const deadlineIdx = deadlineIndexFor(task);
-      const capacity = capacityUntil(deadlineIdx);
-      const slackRatio = capacity > 0 ? remaining / capacity : 9;
-      const urgency = clamp(0.25 * (1 - deadlineIdx / horizon) + 0.75 * slackRatio + (task.quadrant === 'Q1' ? 0.2 : 0), 0, 1);
-      const importance = QUADRANT_IMPORTANCE[task.quadrant] ?? 0.6;
-      const weight = clamp((task.weightage || 3) / 5, 0, 1);
-      const mustDo = task.quadrant === 'Q1' || (task.deadline && daysUntil(task.deadline) <= 2);
       return {
         task,
         ratio,
         remaining: remainingEstimate >= 5 ? remaining : 0,
-        deadlineIdx,
-        urgency,
-        slackRatio,
-        mustDo,
-        priority: 0.45 * urgency + 0.4 * importance + 0.15 * weight + (mustDo ? 0.1 : 0),
+        deadlineIdx: deadlineIndexFor(task),
+        importance: QUADRANT_IMPORTANCE[task.quadrant] ?? 0.6,
+        weight: clamp((task.weightage || 3) / 5, 0, 1),
+        mustDo: task.quadrant === 'Q1' || (task.deadline && daysUntil(task.deadline) <= 2),
         placed: [],
       };
     })
     .filter((p) => p.remaining > 0);
-  plans.sort((a, b) => b.priority - a.priority);
 
-  // Respect prerequisites: a task is planned after the task it depends on.
+  // Prerequisites: dependsOn may be one id, an array, or a comma-separated string.
   const byId = new Map(plans.map((p) => [p.task.id, p]));
+  const depsOf = (task) =>
+    [].concat(task.dependsOn || []).flatMap((d) => String(d).split(',')).map((d) => d.trim()).filter((d) => byId.has(d));
+
+  // Critical path: urgency counts all the work that still has to follow a task (its
+  // longest chain of dependents), and the chain's earliest deadline. A 5-minute preview
+  // that unlocks 6 hours of lecture work is urgent; on its own it wouldn't look it.
+  const children = new Map();
+  plans.forEach((p) => depsOf(p.task).forEach((id) => children.set(id, [...(children.get(id) || []), p])));
+  const chainMemo = new Map();
+  const chainOf = (p, stack = new Set()) => {
+    if (chainMemo.has(p)) return chainMemo.get(p);
+    if (stack.has(p)) return { minutes: p.remaining, deadlineIdx: p.deadlineIdx }; // cycle guard
+    stack.add(p);
+    let minutes = 0;
+    let deadlineIdx = p.deadlineIdx;
+    (children.get(p.task.id) || []).forEach((child) => {
+      const c = chainOf(child, stack);
+      minutes = Math.max(minutes, c.minutes);
+      deadlineIdx = Math.min(deadlineIdx, c.deadlineIdx);
+    });
+    stack.delete(p);
+    const result = { minutes: p.remaining + minutes, deadlineIdx };
+    chainMemo.set(p, result);
+    return result;
+  };
+
+  plans.forEach((p) => {
+    const chain = chainOf(p);
+    p.deadlineIdx = chain.deadlineIdx; // a prerequisite must finish before its dependents' deadline
+    const capacity = capacityUntil(p.deadlineIdx);
+    p.slackRatio = capacity > 0 ? chain.minutes / capacity : 9;
+    p.urgency = clamp(0.25 * (1 - p.deadlineIdx / horizon) + 0.75 * p.slackRatio + (p.task.quadrant === 'Q1' ? 0.2 : 0), 0, 1);
+    p.priority = 0.45 * p.urgency + 0.4 * p.importance + 0.15 * p.weight + (p.mustDo ? 0.1 : 0);
+  });
+  plans.sort((a, b) => b.priority - a.priority);
   const ordered = [];
   const visiting = new Set();
   const visit = (p) => {
     if (ordered.includes(p) || visiting.has(p)) return;
     visiting.add(p);
-    const dep = p.task.dependsOn && byId.get(p.task.dependsOn);
-    if (dep) visit(dep);
+    depsOf(p.task).forEach((id) => visit(byId.get(id)));
     ordered.push(p);
   };
   plans.forEach(visit);
@@ -598,9 +637,24 @@ export function buildStudyPlan({
   const unscheduled = [];
 
   ordered.forEach((p) => {
-    const dep = p.task.dependsOn && byId.get(p.task.dependsOn);
-    const depLast = dep?.placed[dep.placed.length - 1];
-    let earliest = depLast ? { dayIndex: depLast.dayIndex, min: depLast.breakEnd } : null;
+    const deps = depsOf(p.task).map((id) => byId.get(id));
+    // If a prerequisite couldn't be fully scheduled, this step has to wait too.
+    const blocked = deps.find((d) => d.placed.length === 0 || unscheduled.some((u) => u.taskId === d.task.id));
+    if (blocked) {
+      unscheduled.push({ taskId: p.task.id, title: p.task.title, minutes: p.remaining, reason: `Waiting for "${blocked.task.title}" to fit in the plan` });
+      return;
+    }
+    let earliest = null;
+    deps.forEach((d) => {
+      const last = d.placed.reduce((a, s) => (!a || s.dayIndex > a.dayIndex || (s.dayIndex === a.dayIndex && s.breakEnd > a.breakEnd) ? s : a), null);
+      if (last && (!earliest || last.dayIndex > earliest.dayIndex || (last.dayIndex === earliest.dayIndex && last.breakEnd > earliest.min))) {
+        earliest = { dayIndex: last.dayIndex, min: last.breakEnd };
+      }
+    });
+    // Spacing rules, e.g. a recall review at least one day after learning.
+    const gapDays = Number(p.task.meta?.minGapDays) || 0;
+    if (earliest && gapDays > 0) earliest = { dayIndex: earliest.dayIndex + gapDays, min: 0 };
+    const depAnchorDay = earliest ? earliest.dayIndex : null;
     let remaining = p.remaining;
 
     while (remaining >= 5) {
@@ -616,7 +670,17 @@ export function buildStudyPlan({
           if (room < 15) continue;
           raw = Math.floor(room / SLOT) * SLOT;
         }
-        const draft = { taskId: p.task.id, task: p.task, kind: 'WORK', rawMinutes: raw, difficulty: inferDifficulty(p.task), mustDo: p.mustDo };
+        const draft = {
+          taskId: p.task.id,
+          task: p.task,
+          kind: 'WORK',
+          rawMinutes: raw,
+          difficulty: inferDifficulty(p.task),
+          mustDo: p.mustDo,
+          anchorDay: depAnchorDay,
+          chainContinues: (children.get(p.task.id) || []).length > 0 || remaining > raw,
+          earliestAbs: earliest ? earliest.dayIndex * 1440 + earliest.min : nowMin,
+        };
         const candidate = bestSlotInDay({ day, draft, earliest, urgency: p.urgency, ctx });
         if (candidate && (!best || candidate.score > best.score)) {
           best = { ...candidate, draft };
@@ -649,7 +713,7 @@ export function buildStudyPlan({
 
     // Spaced retrieval practice, anchored to first exposure and kept on/before the exam day.
     const first = sorted[0];
-    if (first && isLearningTask(p.task) && p.remaining >= 30) {
+    if (first && isLearningTask(p.task) && p.remaining >= 30 && !p.task.meta?.noAutoReview) {
       const lastReviewIdx = p.task.deadline ? Math.min(daysUntil(p.task.deadline), horizon - 1) : horizon - 1;
       [{ offset: 1, label: '+1 day' }, { offset: 3, label: '+3 days' }].forEach(({ offset, label }) => {
         const targetIdx = Math.min(first.dayIndex + offset, lastReviewIdx);
@@ -699,6 +763,8 @@ export function buildStudyPlan({
       bufferMinutes: s.endMin - s.startMin - s.rawMinutes,
       energyLevel: energyLabel(s.energy),
       reason: explainPlacement(s, day),
+      timeNote: s.task.meta?.timeNote || null,
+      groupTitle: s.task.meta?.groupTitle || null,
       status: 'SCHEDULED',
       coaching: buildTaskCoaching(s.task, { startMin: s.startMin, minutes: s.rawMinutes, dayContext: day.context }),
       taskData: s.task,

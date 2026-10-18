@@ -35,7 +35,7 @@ export const PROFILE_DEFAULTS = {
   daily_focus_cap_minutes: 300,
 };
 
-export const PREFERENCE_KEYS = ['leisureMinutes', 'leisureTime', 'windDownMinutes', 'weeklyOffDay', 'weekendWakeTime', 'weekendSleepTime', 'flexPercent', 'remindersEnabled', 'energyProfile', 'energyLog'];
+export const PREFERENCE_KEYS = ['leisureMinutes', 'leisureTime', 'windDownMinutes', 'weeklyOffDay', 'weekendWakeTime', 'weekendSleepTime', 'flexPercent', 'remindersEnabled', 'energyProfile', 'energyLog', 'learnerSpeeds'];
 
 export function pickPreferences(body = {}) {
   const prefs = {};
@@ -70,6 +70,7 @@ export function taskToRow(t, userId) {
     roadblock: t.roadblock,
     steps: t.steps,
     stuck_protocol: t.stuckProtocol,
+    meta: t.meta || {},
     status: 'PENDING',
   };
 }
@@ -91,13 +92,14 @@ export function rowToTask(r) {
     knowledgeLevel: r.knowledge_level,
     volumeType: r.volume_type,
     volumeCount: r.volume_count,
-    dependsOn: r.depends_on,
+    dependsOn: r.depends_on && r.depends_on.includes(',') ? r.depends_on.split(',') : r.depends_on,
     groupId: r.group_id,
     microSprints: Boolean(r.micro_sprints),
     materials: parseJsonArray(r.materials),
     roadblock: r.roadblock,
     steps: parseJsonArray(r.steps),
     stuckProtocol: r.stuck_protocol,
+    meta: parseJsonObject(r.meta),
     status: r.status,
   };
 }
@@ -174,6 +176,19 @@ export function rowToSessionLog(r) {
     progressPct: r.progress_pct,
     status: r.status,
     hourOfDay: r.hour_of_day,
+    timestamp: r.created_at,
+  };
+}
+
+export function rowToStuck(r) {
+  return {
+    id: r.id,
+    taskId: r.task_id,
+    groupId: r.group_id,
+    taskTitle: r.task_title,
+    kind: r.kind,
+    note: r.note,
+    resolved: Boolean(r.resolved),
     timestamp: r.created_at,
   };
 }

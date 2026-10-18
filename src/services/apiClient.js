@@ -51,6 +51,13 @@ export const parseTimetableWithGeminiVisionApi = (imageBase64) => apiFetch('/ai/
 export const fetchAICoachApi = (summary) => apiFetch('/ai/coach', { method: 'POST', body: { summary } });
 export const fetchAITaskCoachApi = (task, minutes, context) => apiFetch('/ai/task-coach', { method: 'POST', body: { task, minutes, context } });
 
+export const fetchAITopicCheckApi = (subject, units) => apiFetch('/ai/topic-check', { method: 'POST', body: { subject, units } });
+
+// Stuck list
+export const fetchStuckApi = () => apiFetch('/stuck');
+export const addStuckApi = (item) => apiFetch('/stuck', { method: 'POST', body: item });
+export const resolveStuckApi = (id, resolved = true) => apiFetch(`/stuck/${encodeURIComponent(id)}`, { method: 'PATCH', body: { resolved } });
+
 // Check-ins & session logs
 export const fetchCheckinsApi = () => apiFetch('/checkins');
 export const saveCheckinApi = (dateKey, checkin) => apiFetch(`/checkins/${dateKey}`, { method: 'PUT', body: checkin });

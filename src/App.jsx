@@ -36,13 +36,17 @@ import {
   saveCheckinApi,
   fetchSessionLogsApi,
   createBatchFixedEventsApi,
+  fetchStuckApi,
+  addStuckApi,
+  resolveStuckApi,
 } from './services/apiClient';
 
 import { buildStudyPlan, summarizePlanForAI, toDateKey, focusCapacityUntil, formatMinutesToTime } from './services/plannerEngine';
 import { makeEnergyLogEntry } from './services/energyMatcher';
 import { buildTaskCoaching } from './services/taskCoach';
 import { FocusMyEnergy } from './components/FocusMyEnergy';
-import { computeCalibration } from './services/estimationEngine';
+import { computeCalibration, calibrationRatioFor } from './services/estimationEngine';
+import { BreakdownWizard } from './components/BreakdownWizard';
 import { processSessionReview } from './services/recalibrationService';
 import { INITIAL_USER_HABITS } from './constants/initialData';
 import { advanceStreak, currentStreakCount, downloadIcs, needsSupportNudge } from './utils/planUtils';
@@ -89,6 +93,8 @@ export function App() {
   const [aiCoach, setAiCoach] = useState({ loading: false, headline: '', tips: [], error: '' });
   const [aiTaskCoaching, setAiTaskCoaching] = useState({});
   const [review, setReview] = useState(null); // { block, mode, actualMinutes }
+  const [breakdownTask, setBreakdownTask] = useState(undefined); // undefined = closed, null = new, task = break down that task
+  const [aiEnabled, setAiEnabled] = useState(false);
 
   // Core data (dual persistence: localStorage + SQLite sync)
   const [targetDeadlineDays, setTargetDeadlineDays] = usePersistentState('cf_target_deadline', 7);
@@ -103,6 +109,7 @@ export function App() {
   const [dayContexts, setDayContexts] = usePersistentState('cf_checkins', {});
   const [sessionLogs, setSessionLogs] = usePersistentState('cf_session_logs', []);
   const [parkingLot, setParkingLot] = usePersistentState('cf_parking_lot', []);
+  const [stuckItems, setStuckItems] = usePersistentState('cf_stuck_items', []);
   const [checkInSkipped, setCheckInSkipped] = usePersistentState('cf_checkin_skipped', null);
 
   const todayKey = toDateKey(now);
@@ -142,7 +149,10 @@ export function App() {
 
   // Which backend (if any) is reachable?
   useEffect(() => {
-    checkBackendStatus().then((status) => setServerMode(status.status === 'online' ? status.mode || 'sqlite' : null));
+    checkBackendStatus().then((status) => {
+      setServerMode(status.status === 'online' ? status.mode || 'sqlite' : null);
+      setAiEnabled(Boolean(status.aiEnabled));
+    });
   }, []);
 
   // Wipe this browser's copy of the plan (used on sign-out and when another account signs in).
@@ -158,6 +168,7 @@ export function App() {
     setDayContexts({});
     setSessionLogs([]);
     setParkingLot([]);
+    setStuckItems([]);
     setAiTaskCoaching({});
     setPreferredSessionId(null);
     setAdHocBlock(null);
@@ -199,13 +210,14 @@ export function App() {
           localStorage.setItem('cf_owner', authUser.id);
         }
 
-        const [habitsData, fixedEvents, dbTasks, reviewsData, checkins, logsData] = await Promise.all([
+        const [habitsData, fixedEvents, dbTasks, reviewsData, checkins, logsData, stuck] = await Promise.all([
           fetchUserHabitsApi().catch(() => null),
           fetchFixedEventsApi().catch(() => null),
           fetchTasksApi().catch(() => null),
           fetchReviewsApi().catch(() => null),
           fetchCheckinsApi().catch(() => null),
           fetchSessionLogsApi().catch(() => null),
+          fetchStuckApi().catch(() => null),
         ]);
 
         // Signed-in (cloud) accounts: the server is the source of truth, even when empty.
@@ -232,6 +244,7 @@ export function App() {
         if (checkins && (cloud || Object.keys(checkins).length > 0)) {
           setDayContexts((local) => (cloud ? checkins : { ...checkins, ...local }));
         }
+        if (Array.isArray(stuck) && (cloud || stuck.length > 0)) setStuckItems(stuck);
         if (logsData?.logs?.length) {
           setSessionLogs((local) =>
             local.length > 0
@@ -589,6 +602,45 @@ export function App() {
   };
 
   // Swap the current session for a lighter one later today; the heavy one stays planned.
+  /* ---------------- Break it down & stuck list ---------------- */
+
+  const handleAddBreakdownSteps = async (steps, replaceTaskId) => {
+    await handleAddTasks(steps);
+    if (replaceTaskId) await handleDeleteTask(replaceTaskId);
+    setActiveTab('timeline');
+  };
+
+  const handleSaveLearnerSpeed = (subject, speed) =>
+    handleUpdateHabits({ ...userHabits, learnerSpeeds: { ...(userHabits.learnerSpeeds || {}), [subject.toLowerCase()]: speed } });
+
+  const paceRatioFor = (subject) => calibrationRatioFor({ subject, taskType: 'learn' }, calibration);
+
+  const handleReportStuck = async (block, { kind, note, action }) => {
+    const item = {
+      id: `stuck-${Date.now()}`,
+      taskId: block.taskId,
+      groupId: block.taskData?.groupId || null,
+      taskTitle: block.taskTitle,
+      kind,
+      note,
+      resolved: false,
+      timestamp: new Date().toISOString(),
+    };
+    setStuckItems((prev) => [item, ...prev].slice(0, 200));
+    if (backendOnline) addStuckApi(item).catch(console.error);
+    if (action === 'unblock') applyReasonToTask(block, 'CONCEPTUAL_BLOCK', note);
+  };
+
+  const handleResolveStuck = (id) => {
+    setStuckItems((prev) => prev.map((it) => (it.id === id ? { ...it, resolved: true } : it)));
+    if (backendOnline) resolveStuckApi(id).catch(console.error);
+  };
+
+  // Unresolved stuck points that belong to the current session's lecture plan (or task).
+  const currentStuck = currentActionBlock
+    ? stuckItems.filter((it) => !it.resolved && (it.taskId === currentActionBlock.taskId || (it.groupId && it.groupId === currentActionBlock.taskData?.groupId)))
+    : [];
+
   const handleSwapLighter = () => {
     if (!currentActionBlock) return;
     const nowMin = now.getHours() * 60 + now.getMinutes();
@@ -669,6 +721,9 @@ export function App() {
               onMarkNotDone={handleMarkNotDone}
               onSwapLighter={handleSwapLighter}
               onOpenEnergy={() => setActiveTab('energy')}
+              stuckItems={currentStuck}
+              onReportStuck={handleReportStuck}
+              onResolveStuck={handleResolveStuck}
               onNavigateTab={setActiveTab}
               onOpenGuide={() => setIsGuideOpen(true)}
               onOpenRoutineSetup={() => setIsOnboardingOpen(true)}
@@ -696,6 +751,7 @@ export function App() {
             onDeleteTask={handleDeleteTask}
             onGenerateBatchAI={handleBatchAI}
             onOpenBattlePlan={() => setIsBattlePlanOpen(true)}
+            onBreakDown={(task) => setBreakdownTask(task || null)}
             targetDeadlineDays={targetDeadlineDays}
             onUpdateTargetDeadlineDays={setTargetDeadlineDays}
             feasibility={plan.feasibility}
@@ -771,6 +827,20 @@ export function App() {
             if (!dayContexts[todayKey]) setCheckInSkipped(todayKey);
           }}
           onSave={handleSaveCheckin}
+        />
+      )}
+
+      {breakdownTask !== undefined && (
+        <BreakdownWizard
+          isOpen
+          initialTask={breakdownTask}
+          sessionStyle={userHabits.sessionStyle}
+          learnerSpeeds={userHabits.learnerSpeeds || {}}
+          paceRatioFor={paceRatioFor}
+          aiAvailable={backendOnline && aiEnabled}
+          onClose={() => setBreakdownTask(undefined)}
+          onAddSteps={handleAddBreakdownSteps}
+          onSaveLearnerSpeed={handleSaveLearnerSpeed}
         />
       )}
 

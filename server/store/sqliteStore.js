@@ -1,6 +1,6 @@
 // Local single-user storage (better-sqlite3). Used when Supabase isn't configured.
 // Loaded lazily so serverless deployments never touch the native module.
-import { taskToRow, rowToTask, rowToFixedEvent, fixedEventToRow, profileToHabits, rowToReview, rowToSessionLog, pickPreferences, PROFILE_DEFAULTS } from './shared.js';
+import { rowToStuck, taskToRow, rowToTask, rowToFixedEvent, fixedEventToRow, profileToHabits, rowToReview, rowToSessionLog, pickPreferences, PROFILE_DEFAULTS } from './shared.js';
 
 export async function createSqliteStore() {
   const { db, resetDatabase } = await import('../db.js');
@@ -14,10 +14,10 @@ export async function createSqliteStore() {
   const upsertTaskStmt = db.prepare(`
     INSERT OR REPLACE INTO tasks (id, user_id, title, category, subject, quadrant, estimated_minutes, completed_minutes,
       confidence, weightage, difficulty, deadline, task_type, knowledge_level, volume_type, volume_count, depends_on, group_id,
-      micro_sprints, materials, roadblock, steps, stuck_protocol, status)
+      micro_sprints, meta, materials, roadblock, steps, stuck_protocol, status)
     VALUES (@id, @user_id, @title, @category, @subject, @quadrant, @estimated_minutes, @completed_minutes,
       @confidence, @weightage, @difficulty, @deadline, @task_type, @knowledge_level, @volume_type, @volume_count, @depends_on, @group_id,
-      @micro_sprints, @materials, @roadblock, @steps, @stuck_protocol, @status)
+      @micro_sprints, @meta, @materials, @roadblock, @steps, @stuck_protocol, @status)
   `);
 
   return {
@@ -81,7 +81,7 @@ export async function createSqliteStore() {
     async upsertTasks(userId, tasks) {
       db.transaction(() => tasks.forEach((t) => {
         const row = taskToRow(t, userId);
-        upsertTaskStmt.run({ ...row, micro_sprints: row.micro_sprints ? 1 : 0, materials: JSON.stringify(row.materials), steps: JSON.stringify(row.steps) });
+        upsertTaskStmt.run({ ...row, micro_sprints: row.micro_sprints ? 1 : 0, meta: JSON.stringify(row.meta || {}), materials: JSON.stringify(row.materials), steps: JSON.stringify(row.steps) });
       }))();
     },
 
@@ -157,6 +157,18 @@ export async function createSqliteStore() {
         .prepare('SELECT * FROM session_reviews WHERE user_id = ? AND planned_minutes IS NOT NULL ORDER BY created_at DESC LIMIT 300')
         .all(userId)
         .map(rowToSessionLog);
+    },
+
+    async listStuck(userId) {
+      return db.prepare('SELECT * FROM stuck_items WHERE user_id = ? ORDER BY created_at DESC LIMIT 200').all(userId).map(rowToStuck);
+    },
+
+    async insertStuck(userId, item) {
+      db.prepare('INSERT OR REPLACE INTO stuck_items (id, user_id, task_id, group_id, task_title, kind, note, resolved) VALUES (?, ?, ?, ?, ?, ?, ?, 0)').run(item.id, userId, item.taskId, item.groupId, item.taskTitle, item.kind, item.note);
+    },
+
+    async resolveStuck(userId, id, resolved) {
+      db.prepare('UPDATE stuck_items SET resolved = ? WHERE id = ? AND user_id = ?').run(resolved ? 1 : 0, id, userId);
     },
 
     async reset(userId) {

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Plus, Trash2, Sparkles, Clock, Calendar, AlertTriangle, CheckCircle2, Target } from 'lucide-react';
+import { Plus, Trash2, Sparkles, Clock, Calendar, AlertTriangle, CheckCircle2, Target, Scissors } from 'lucide-react';
 import { EISENHOWER_QUADRANTS } from '../constants/initialData';
 import { VOLUME_TYPES, KNOWLEDGE_LEVELS, estimateFromVolume, sanityCheckEstimate, calibrationRatioFor } from '../services/estimationEngine';
 
@@ -9,6 +9,7 @@ export function BacklogCruncher({
   onDeleteTask,
   onGenerateBatchAI,
   onOpenBattlePlan,
+  onBreakDown,
   targetDeadlineDays = 3,
   onUpdateTargetDeadlineDays,
   feasibility,
@@ -128,6 +129,12 @@ export function BacklogCruncher({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {onBreakDown && (
+            <button className="btn-secondary" onClick={() => onBreakDown(null)} id="break-down-btn">
+              <Scissors size={14} />
+              <span>Break down lectures</span>
+            </button>
+          )}
           {onOpenBattlePlan && (
             <button className="btn-secondary" onClick={onOpenBattlePlan} id="battle-plan-btn">
               <Target size={14} />
@@ -498,15 +505,31 @@ export function BacklogCruncher({
                           {t.deadline && <span>• <Calendar size={11} style={{ verticalAlign: '-1px' }} /> {t.deadline}</span>}
                           {t.subject && <span>• {t.subject}</span>}
                         </div>
+                        {t.meta?.groupTitle && (
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-faint)', marginTop: '0.15rem' }}>
+                            {t.meta.groupTitle} · step {t.meta.seq}
+                          </div>
+                        )}
                       </div>
 
-                      <button
-                        onClick={() => onDeleteTask(t.id)}
-                        style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px' }}
-                        title="Remove"
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.15rem', flexShrink: 0 }}>
+                        {onBreakDown && !t.meta?.groupTitle && (t.estimatedMinutes || 0) >= 45 && (
+                          <button
+                            onClick={() => onBreakDown(t)}
+                            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px' }}
+                            title="Break this into timed steps"
+                          >
+                            <Scissors size={13} />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => onDeleteTask(t.id)}
+                          style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px' }}
+                          title="Remove"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, RotateCcw, Check, X, CheckCircle2, Sliders, Sparkles, Clock, ArrowRight, ChevronDown, Lightbulb, ShieldAlert, ListChecks, Inbox, Plus, Flag } from 'lucide-react';
+import { Play, Pause, RotateCcw, Check, X, CheckCircle2, Sliders, Sparkles, Clock, ArrowRight, ChevronDown, Lightbulb, ShieldAlert, ListChecks, Inbox, Plus, Flag, HelpCircle } from 'lucide-react';
 import { playAmbientSound, stopAmbientSound, playCompletionChime } from '../utils/audioSynthesizer';
+import { StuckModal } from './StuckModal';
 
 const MODE_LABEL = { FULL: null, LIGHT: 'Light day', RECOVERY: 'Recovery day' };
 
@@ -30,6 +31,9 @@ export function RoundCounterTimer({
   parkingLot = [],
   onUpdateParkingLot,
   onOpenEnergy,
+  stuckItems = [],
+  onReportStuck,
+  onResolveStuck,
 }) {
   const [ladderIdx, setLadderIdx] = useState(0);
   const coaching = currentBlock?.coaching;
@@ -43,6 +47,7 @@ export function RoundCounterTimer({
   const [showDetails, setShowDetails] = useState(true);
   const [parkingText, setParkingText] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [showStuck, setShowStuck] = useState(false);
 
   // Reset when the session changes.
   useEffect(() => {
@@ -172,6 +177,19 @@ export function RoundCounterTimer({
 
   return (
     <section className="mono-card" style={{ marginBottom: '2.5rem' }}>
+      {showStuck && (
+        <StuckModal
+          block={currentBlock}
+          onClose={() => setShowStuck(false)}
+          onSave={(data) => {
+            if (data.action === 'micro') {
+              setIsActive(false);
+              setSecondsLeft(15 * 60);
+            }
+            onReportStuck(currentBlock, data);
+          }}
+        />
+      )}
       {/* Today's mission */}
       {mission && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
@@ -201,6 +219,7 @@ export function RoundCounterTimer({
         <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textAlign: 'right' }}>
           {currentBlock.rawDuration}m work + {currentBlock.bufferMinutes}m buffer
           {currentBlock.reason && <div style={{ fontFamily: 'var(--font-sans)', fontSize: '0.72rem', color: 'var(--text-faint)', marginTop: '0.15rem' }}>{currentBlock.reason}</div>}
+          {currentBlock.timeNote && <div style={{ fontFamily: 'var(--font-sans)', fontSize: '0.72rem', color: 'var(--text-faint)', marginTop: '0.1rem' }}>Time: {currentBlock.timeNote}</div>}
         </div>
       </div>
 
@@ -266,6 +285,11 @@ export function RoundCounterTimer({
             <button className="btn-danger" onClick={() => finish(onMarkNotDone)} id="round-timer-stalled-btn">
               <X size={16} /> Stalled
             </button>
+            {onReportStuck && (
+              <button className="btn-secondary" onClick={() => setShowStuck(true)} id="im-stuck-btn">
+                <HelpCircle size={15} /> I'm stuck
+              </button>
+            )}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '1rem', fontSize: '0.75rem' }}>
@@ -294,6 +318,21 @@ export function RoundCounterTimer({
               </button>
             ))}
           </div>
+
+          {/* Stuck points for this lecture plan / task */}
+          {stuckItems.length > 0 && (
+            <div style={{ ...card, width: '100%', marginTop: '1.25rem', border: '1px solid var(--border-strong)' }}>
+              <SectionTitle icon={HelpCircle}>
+                {['summary', 'review', 'connect'].includes(currentBlock.taskData?.meta?.kind) ? 'Resolve your stuck points in this step' : `Parked questions (${stuckItems.length})`}
+              </SectionTitle>
+              {stuckItems.map((it) => (
+                <label key={it.id} style={{ display: 'flex', gap: '0.45rem', alignItems: 'flex-start', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', cursor: 'pointer' }}>
+                  <input type="checkbox" onChange={() => onResolveStuck(it.id)} style={{ accentColor: '#ffffff', marginTop: '0.2rem' }} />
+                  <span>{it.note}{it.taskTitle ? <span style={{ color: 'var(--text-faint)' }}> — {it.taskTitle}</span> : null}</span>
+                </label>
+              ))}
+            </div>
+          )}
 
           {/* Distraction parking lot */}
           <div style={{ ...card, width: '100%', marginTop: '1.25rem' }}>

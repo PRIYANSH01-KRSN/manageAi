@@ -69,6 +69,7 @@ create table if not exists public.tasks (
   steps jsonb not null default '[]'::jsonb,
   stuck_protocol text,
   status text not null default 'PENDING',
+  meta jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   primary key (user_id, id)
 );
@@ -112,6 +113,20 @@ create table if not exists public.daily_checkins (
   primary key (user_id, date_key)
 );
 
+-- Things a student got stuck on (agenda for summary/review sessions)
+create table if not exists public.stuck_items (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  id text not null,
+  task_id text,
+  group_id text,
+  task_title text,
+  kind text not null default 'concept',
+  note text not null,
+  resolved boolean not null default false,
+  created_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
 -- Row-level security: each student sees only their own rows.
 alter table public.profiles enable row level security;
 alter table public.habits enable row level security;
@@ -120,6 +135,7 @@ alter table public.tasks enable row level security;
 alter table public.session_reviews enable row level security;
 alter table public.fatigue_hours enable row level security;
 alter table public.daily_checkins enable row level security;
+alter table public.stuck_items enable row level security;
 
 drop policy if exists "own profile" on public.profiles;
 create policy "own profile" on public.profiles
@@ -128,7 +144,7 @@ create policy "own profile" on public.profiles
 do $$
 declare t text;
 begin
-  foreach t in array array['habits', 'fixed_events', 'tasks', 'session_reviews', 'fatigue_hours', 'daily_checkins'] loop
+  foreach t in array array['habits', 'fixed_events', 'tasks', 'session_reviews', 'fatigue_hours', 'daily_checkins', 'stuck_items'] loop
     execute format('drop policy if exists "own rows" on public.%I', t);
     execute format('create policy "own rows" on public.%I for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid())', t);
   end loop;

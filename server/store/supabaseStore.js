@@ -1,7 +1,7 @@
 // Multi-user storage on Supabase Postgres. The client passed in carries the signed-in
 // student's access token, so every query is also checked by row-level security
 // (user_id = auth.uid()) — one student can never read or write another's rows.
-import { taskToRow, rowToTask, rowToFixedEvent, fixedEventToRow, profileToHabits, rowToReview, rowToSessionLog, pickPreferences, PROFILE_DEFAULTS } from './shared.js';
+import { rowToStuck, taskToRow, rowToTask, rowToFixedEvent, fixedEventToRow, profileToHabits, rowToReview, rowToSessionLog, pickPreferences, PROFILE_DEFAULTS } from './shared.js';
 
 function must({ data, error }) {
   if (error) throw new Error(`Database error: ${error.message}`);
@@ -73,7 +73,14 @@ export function createSupabaseStore(sb) {
 
     async upsertTasks(userId, tasks) {
       if (!tasks.length) return;
-      must(await sb.from('tasks').upsert(tasks.map((t) => taskToRow(t, userId)), { onConflict: 'user_id,id' }));
+      const rows = tasks.map((t) => taskToRow(t, userId));
+      const result = await sb.from('tasks').upsert(rows, { onConflict: 'user_id,id' });
+      // Before migration 002 is applied the `meta` column doesn't exist: save without it.
+      if (result.error && /meta/i.test(result.error.message)) {
+        must(await sb.from('tasks').upsert(rows.map((row) => ({ ...row, meta: undefined })), { onConflict: 'user_id,id' }));
+        return;
+      }
+      must(result);
     },
 
     async deleteTask(userId, id) {
@@ -139,10 +146,25 @@ export function createSupabaseStore(sb) {
       return rows.map(rowToSessionLog);
     },
 
+    async listStuck(userId) {
+      const result = await sb.from('stuck_items').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(200);
+      if (result.error && /stuck_items/i.test(result.error.message)) return []; // migration 002 not applied yet
+      return must(result).map(rowToStuck);
+    },
+
+    async insertStuck(userId, item) {
+      must(await sb.from('stuck_items').upsert({ id: item.id, user_id: userId, task_id: item.taskId, group_id: item.groupId, task_title: item.taskTitle, kind: item.kind, note: item.note, resolved: false }, { onConflict: 'user_id,id' }));
+    },
+
+    async resolveStuck(userId, id, resolved) {
+      must(await sb.from('stuck_items').update({ resolved: Boolean(resolved) }).eq('user_id', userId).eq('id', id));
+    },
+
     async reset(userId) {
       for (const table of ['tasks', 'fixed_events', 'habits', 'session_reviews', 'fatigue_hours', 'daily_checkins']) {
         must(await sb.from(table).delete().eq('user_id', userId));
       }
+      await sb.from('stuck_items').delete().eq('user_id', userId); // may not exist before migration 002
       must(await sb.from('profiles').upsert({ id: userId, ...PROFILE_DEFAULTS }, { onConflict: 'id' }));
     },
   };
