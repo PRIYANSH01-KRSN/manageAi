@@ -35,7 +35,7 @@ export const PROFILE_DEFAULTS = {
   daily_focus_cap_minutes: 300,
 };
 
-export const PREFERENCE_KEYS = ['leisureMinutes', 'leisureTime', 'windDownMinutes', 'weeklyOffDay', 'weekendWakeTime', 'weekendSleepTime', 'flexPercent', 'remindersEnabled'];
+export const PREFERENCE_KEYS = ['leisureMinutes', 'leisureTime', 'windDownMinutes', 'weeklyOffDay', 'weekendWakeTime', 'weekendSleepTime', 'flexPercent', 'remindersEnabled', 'energyProfile', 'energyLog'];
 
 export function pickPreferences(body = {}) {
   const prefs = {};

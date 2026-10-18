@@ -413,7 +413,33 @@ app.put('/api/user', async (req, res, next) => {
     const habits = Array.isArray(b.habits)
       ? b.habits.filter((h) => h && h.name && isTime(h.startTime) && isTime(h.endTime)).slice(0, 20).map((h) => ({ ...h, name: String(h.name).slice(0, 80), id: h.id ? String(h.id).slice(0, 120) : undefined }))
       : undefined;
-    await req.store.saveProfile(req.userId, { ...b, habits }, sanitized);
+    // Focus My Energy: optional profile + recent self-reports (kept small).
+    const timeOrEmpty = (v) => (isTime(v) ? v : '');
+    const energyProfile = b.energyProfile && typeof b.energyProfile === 'object'
+      ? {
+          peakStart: timeOrEmpty(b.energyProfile.peakStart),
+          peakEnd: timeOrEmpty(b.energyProfile.peakEnd),
+          dipStart: timeOrEmpty(b.energyProfile.dipStart),
+          dipEnd: timeOrEmpty(b.energyProfile.dipEnd),
+          secondWindStart: timeOrEmpty(b.energyProfile.secondWindStart),
+          secondWindEnd: timeOrEmpty(b.energyProfile.secondWindEnd),
+          slowDays: Array.isArray(b.energyProfile.slowDays) ? b.energyProfile.slowDays.map(Number).filter((d) => d >= 0 && d <= 6).slice(0, 7) : [],
+          drains: String(b.energyProfile.drains || '').slice(0, 200),
+          boosts: String(b.energyProfile.boosts || '').slice(0, 200),
+        }
+      : undefined;
+    const energyLog = Array.isArray(b.energyLog)
+      ? b.energyLog.slice(0, 60).filter((e) => e && ['SHARP', 'STEADY', 'FRIED'].includes(e.level)).map((e) => ({
+          ts: String(e.ts || '').slice(0, 40),
+          dateKey: isDateKey(e.dateKey) ? e.dateKey : null,
+          hour: clampInt(e.hour, 0, 23, 12),
+          minute: clampInt(e.minute, 0, 59, 0),
+          weekday: clampInt(e.weekday, 0, 6, 1),
+          level: e.level,
+          after: e.after ? String(e.after).slice(0, 20) : null,
+        }))
+      : undefined;
+    await req.store.saveProfile(req.userId, { ...b, habits, energyProfile, energyLog }, sanitized);
     res.json({ success: true });
   } catch (err) {
     next(err);

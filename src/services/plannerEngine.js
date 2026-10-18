@@ -79,7 +79,7 @@ const hoursLabel = (m) => `${Math.round(m / 6) / 10}h`;
 
 // 24-entry hourly energy curve (0..1) derived from the chronotype buckets, smoothed so
 // adjacent hours blend instead of jumping between categories.
-export function buildHourlyEnergyCurve(chronotypeKey) {
+export function buildHourlyEnergyCurve(chronotypeKey, energyProfile = null) {
   const chrono = CHRONOTYPES[chronotypeKey] || CHRONOTYPES.BALANCED;
   const raw = Array.from({ length: 24 }, (_, h) => {
     if (chrono.peakHours.includes(h)) return 1.0;
@@ -88,6 +88,21 @@ export function buildHourlyEnergyCurve(chronotypeKey) {
     if (chrono.windDownHours.includes(h)) return 0.25;
     return 0.5;
   });
+
+  // A personal energy profile (peak / dip / second wind) overrides the generic chronotype.
+  const hoursIn = (start, end) => {
+    if (!start || !end) return [];
+    const s = Math.floor(parseTimeToMinutes(start) / 60);
+    const e = Math.ceil(parseTimeToMinutes(end) / 60);
+    const out = [];
+    for (let h = s; h !== e % 24 && out.length < 24; h = (h + 1) % 24) out.push(h);
+    return out;
+  };
+  if (energyProfile) {
+    hoursIn(energyProfile.peakStart, energyProfile.peakEnd).forEach((h) => (raw[h] = 1.0));
+    hoursIn(energyProfile.secondWindStart, energyProfile.secondWindEnd).forEach((h) => (raw[h] = Math.max(raw[h], 0.85)));
+    hoursIn(energyProfile.dipStart, energyProfile.dipEnd).forEach((h) => (raw[h] = 0.3));
+  }
   return raw.map((v, h) => 0.6 * v + 0.2 * raw[(h + 23) % 24] + 0.2 * raw[(h + 1) % 24]);
 }
 
@@ -499,7 +514,7 @@ export function buildStudyPlan({
   const horizon = clamp(Number(horizonDays) || 7, 1, 21);
   const today = startOfDay(now);
   const nowMin = now.getHours() * 60 + now.getMinutes();
-  const curve = buildHourlyEnergyCurve(userHabits.chronotype);
+  const curve = buildHourlyEnergyCurve(userHabits.chronotype, userHabits.energyProfile);
   const hourAdj = learnHourAdjustments(reviewHistory);
   const ctx = {
     dailyCap: clamp(Number(userHabits.dailyFocusCapMinutes) || DEFAULT_DAILY_CAP, 60, 720),

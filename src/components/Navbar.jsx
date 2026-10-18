@@ -45,6 +45,14 @@ export function Navbar({
         </button>
 
         <button
+          className={`nav-tab-btn ${activeTab === 'energy' ? 'active' : ''}`}
+          onClick={() => setActiveTab('energy')}
+          id="nav-energy-btn"
+        >
+          <span>Focus My Energy</span>
+        </button>
+
+        <button
           className={`nav-tab-btn ${activeTab === 'backlog' ? 'active' : ''}`}
           onClick={() => setActiveTab('backlog')}
           id="nav-backlog-btn"

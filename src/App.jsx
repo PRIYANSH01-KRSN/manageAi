@@ -39,6 +39,9 @@ import {
 } from './services/apiClient';
 
 import { buildStudyPlan, summarizePlanForAI, toDateKey, focusCapacityUntil, formatMinutesToTime } from './services/plannerEngine';
+import { makeEnergyLogEntry } from './services/energyMatcher';
+import { buildTaskCoaching } from './services/taskCoach';
+import { FocusMyEnergy } from './components/FocusMyEnergy';
 import { computeCalibration } from './services/estimationEngine';
 import { processSessionReview } from './services/recalibrationService';
 import { INITIAL_USER_HABITS } from './constants/initialData';
@@ -82,6 +85,7 @@ export function App() {
   const [isEndOfDayOpen, setIsEndOfDayOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [preferredSessionId, setPreferredSessionId] = useState(null);
+  const [adHocBlock, setAdHocBlock] = useState(null); // one-off session picked by Focus My Energy
   const [aiCoach, setAiCoach] = useState({ loading: false, headline: '', tips: [], error: '' });
   const [aiTaskCoaching, setAiTaskCoaching] = useState({});
   const [review, setReview] = useState(null); // { block, mode, actualMinutes }
@@ -156,6 +160,7 @@ export function App() {
     setParkingLot([]);
     setAiTaskCoaching({});
     setPreferredSessionId(null);
+    setAdHocBlock(null);
   };
 
   const handleSignOut = async () => {
@@ -270,12 +275,53 @@ export function App() {
     return raw;
   }, [planParams, doneSessionIds]);
 
-  // Exactly one thing to do now: next pending session today (or the one the student picked)
+  // Exactly one thing to do now: an energy-matched pick, the session the student chose,
+  // or the next pending session today.
   const currentActionBlock = useMemo(() => {
+    if (adHocBlock && tasks.some((t) => t.id === adHocBlock.taskId)) return adHocBlock;
     const nowMin = now.getHours() * 60 + now.getMinutes();
     const todays = (plan.days[0]?.sessions || []).filter((s) => s.status !== 'COMPLETED' && s.endMin > nowMin);
     return todays.find((s) => s.id === preferredSessionId) || todays[0] || null;
-  }, [plan, now, preferredSessionId]);
+  }, [plan, now, preferredSessionId, adHocBlock, tasks]);
+
+  /* ---------------- Focus My Energy ---------------- */
+
+  const handleLogEnergy = (level, after) => {
+    const energyLog = [makeEnergyLogEntry(level, after), ...(userHabits.energyLog || [])].slice(0, 60);
+    handleUpdateHabits({ ...userHabits, energyLog });
+  };
+
+  const handleSaveEnergyProfile = (energyProfile) => handleUpdateHabits({ ...userHabits, energyProfile });
+
+  // Start the energy-matched task right now, sized to the student's current energy.
+  // Progress is credited to the task, so the rest of the plan re-adjusts afterwards.
+  const handleStartEnergyTask = (task, minutes) => {
+    const startMin = now.getHours() * 60 + now.getMinutes();
+    setPreferredSessionId(null);
+    setAdHocBlock({
+      id: `now-${task.id}-${Date.now()}`,
+      taskId: task.id,
+      taskTitle: task.title,
+      subject: task.subject,
+      quadrant: task.quadrant,
+      taskType: task.taskType,
+      kind: 'WORK',
+      difficulty: task.difficulty || 3,
+      dateKey: todayKey,
+      startMin,
+      endMin: startMin + minutes,
+      startTime: formatMinutesToTime(startMin),
+      endTime: formatMinutesToTime(startMin + minutes),
+      rawDuration: minutes,
+      progressMinutes: minutes,
+      bufferMinutes: 0,
+      reason: 'Picked by Focus My Energy for how you feel right now',
+      coaching: buildTaskCoaching(task, { startMin, minutes, dayContext: todayContext }),
+      taskData: task,
+    });
+    setActiveTab('focus');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Browser reminders 5 minutes before each session
   const notifiedRef = useRef(new Set());
@@ -307,6 +353,7 @@ export function App() {
   const handleSaveCheckin = (data) => {
     saveTodayContext(data);
     setPreferredSessionId(null);
+    setAdHocBlock(null);
   };
 
   const handleChangePlanVariant = (variant) => saveTodayContext({ planVariant: variant });
@@ -321,6 +368,7 @@ export function App() {
     const busyBlocks = [...(todayContext?.busyBlocks || []), { title: 'Something came up', startTime: start, endTime: end }];
     saveTodayContext({ busyBlocks });
     setPreferredSessionId(null);
+    setAdHocBlock(null);
   };
 
   /* ---------------- AI ---------------- */
@@ -459,6 +507,7 @@ export function App() {
 
     setStreak((s) => advanceStreak(s));
     setPreferredSessionId(null);
+    setAdHocBlock(null);
     setDoneSessionIds((prev) => [...prev, `${block.id}@${block.dateKey}`].slice(-300));
     creditProgress(block, 100);
     logSession(block, 'COMPLETED', 100, actualMinutes);
@@ -512,6 +561,7 @@ export function App() {
       setDoneSessionIds((prev) => [...prev, `${scheduledBlock.id}@${scheduledBlock.dateKey}`].slice(-300));
     }
     setPreferredSessionId(null);
+    setAdHocBlock(null);
     logSession(scheduledBlock, status, progressPct, actualMinutes);
     if (reasonId) applyReasonToTask(scheduledBlock, reasonId, userNote);
 
@@ -618,6 +668,7 @@ export function App() {
               onMarkPartial={handleMarkPartial}
               onMarkNotDone={handleMarkNotDone}
               onSwapLighter={handleSwapLighter}
+              onOpenEnergy={() => setActiveTab('energy')}
               onNavigateTab={setActiveTab}
               onOpenGuide={() => setIsGuideOpen(true)}
               onOpenRoutineSetup={() => setIsOnboardingOpen(true)}
@@ -682,6 +733,19 @@ export function App() {
             userHabits={userHabits}
             sessionLogs={sessionLogs}
             calibration={calibration}
+          />
+        )}
+
+        {activeTab === 'energy' && (
+          <FocusMyEnergy
+            tasks={tasks}
+            userHabits={userHabits}
+            todayContext={todayContext}
+            learnedFatigueHours={learnedFatigueHours}
+            now={now}
+            onLogEnergy={handleLogEnergy}
+            onSaveProfile={handleSaveEnergyProfile}
+            onStartTask={handleStartEnergyTask}
           />
         )}
 

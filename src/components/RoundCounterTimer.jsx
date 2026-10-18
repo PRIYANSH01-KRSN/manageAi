@@ -29,6 +29,7 @@ export function RoundCounterTimer({
   aiCoaching,
   parkingLot = [],
   onUpdateParkingLot,
+  onOpenEnergy,
 }) {
   const [ladderIdx, setLadderIdx] = useState(0);
   const coaching = currentBlock?.coaching;
@@ -384,6 +385,11 @@ export function RoundCounterTimer({
           <button onClick={onSwapLighter} style={{ alignSelf: 'flex-start', background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '0.78rem', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>
             Too heavy right now? Swap to a lighter session today →
           </button>
+          {onOpenEnergy && (
+            <button onClick={onOpenEnergy} style={{ alignSelf: 'flex-start', background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '0.78rem', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>
+              Feeling sharp or fried? Match your work to your energy →
+            </button>
+          )}
         </div>
       </div>
     </section>
