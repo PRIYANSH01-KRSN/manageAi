@@ -28,7 +28,11 @@ export function QuickAdd({ energy, onCreate }) {
       setEstimate(res.task);
     } catch (err) {
       setEstimate(parseQuickTask(text.trim()));
-      setAiNote(err.status === 429 ? err.message : 'AI is unavailable right now, so this is a rough estimate from your text.');
+      setAiNote(
+        err.status === 429 || err.status === 503
+          ? `${err.message} Meanwhile, here's a rough estimate from your text.`
+          : 'AI is unavailable right now, so this is a rough estimate from your text.'
+      );
     } finally {
       setLoading(false);
     }

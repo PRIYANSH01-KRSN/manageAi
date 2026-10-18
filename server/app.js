@@ -118,12 +118,22 @@ async function resolveModel(force = false) {
   return picked;
 }
 
-// Calls Gemini in JSON mode. The API key travels in a header (never in the URL).
-async function callGemini({ parts, systemInstruction, temperature = 0.4 }, retried = false) {
-  if (!GEMINI_API_KEY) throw new AIUnavailableError('GEMINI_API_KEY is not configured on the server');
+// Another usable flash model to fall back to when the main one is overloaded.
+let fallbackCache = { name: null, at: 0 };
+async function fallbackModel(exclude) {
+  if (fallbackCache.name && fallbackCache.name !== exclude && Date.now() - fallbackCache.at < 6 * 3600 * 1000) return fallbackCache.name;
+  const list = await fetch(`${GEMINI_BASE}/models?pageSize=200`, { headers: geminiHeaders() });
+  if (!list.ok) return null;
+  const models = ((await list.json()).models || []).filter((m) => String(m.name).replace(/^models\//, '') !== exclude);
+  const name = pickBestFlashModel(models);
+  fallbackCache = { name, at: Date.now() };
+  return name;
+}
 
-  const model = await resolveModel(retried);
-  const res = await fetch(`${GEMINI_BASE}/models/${encodeURIComponent(model)}:generateContent`, {
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function generateWith(model, { parts, systemInstruction, temperature }) {
+  return fetch(`${GEMINI_BASE}/models/${encodeURIComponent(model)}:generateContent`, {
     method: 'POST',
     headers: geminiHeaders(),
     body: JSON.stringify({
@@ -132,12 +142,32 @@ async function callGemini({ parts, systemInstruction, temperature = 0.4 }, retri
       generationConfig: { temperature, responseMimeType: 'application/json' },
     }),
   });
+}
+
+// Calls Gemini in JSON mode (API key in a header, never the URL). Resilient to the usual
+// free-tier hiccups: a renamed model (404 → re-resolve), a busy model (503/500 → short
+// retry, then another flash model), and quota limits (429 → clear message).
+async function callGemini({ parts, systemInstruction, temperature = 0.4 }, retried = false) {
+  if (!GEMINI_API_KEY) throw new AIUnavailableError('GEMINI_API_KEY is not configured on the server');
+
+  const request = { parts, systemInstruction, temperature };
+  const model = await resolveModel(retried);
+  let res = await generateWith(model, request);
+
+  if (res.status === 404 && !retried) return callGemini(request, true);
+  if (res.status === 503 || res.status === 500) {
+    await sleep(900);
+    res = await generateWith(model, request);
+    if (res.status === 503 || res.status === 500) {
+      const alt = await fallbackModel(model);
+      if (alt) res = await generateWith(alt, request);
+    }
+  }
 
   if (!res.ok) {
-    // Model retired/renamed since we cached it → re-resolve once.
-    if (res.status === 404 && !retried) return callGemini({ parts, systemInstruction, temperature }, true);
     const errorText = await res.text();
-    if (res.status === 429) throw new AIUnavailableError('The free Gemini quota is used up for now. Try again in a minute.');
+    if (res.status === 429) throw new AIUnavailableError('The free AI quota is used up for the moment. Try again in a minute.');
+    if (res.status === 503 || res.status === 500) throw new AIUnavailableError('The AI is very busy right now. Please try again in a minute.');
     throw new Error(`Gemini API Error (${res.status}): ${errorText.slice(0, 300)}`);
   }
 
