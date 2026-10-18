@@ -12,10 +12,13 @@
 // Structure is deterministic (fast, offline, testable). AI only suggests subtopic names,
 // complexity and check questions; the student confirms everything.
 
+// `pause` = extra time over the raw video/reading for pausing to note things down.
+// Calibrated so 3 hours of brand-new lectures ≈ 5h exam-ready, partly known ≈ 4h,
+// already known ≈ 3h (the planner adds only a small distraction buffer on top).
 export const GOALS = {
-  exam: { id: 'exam', label: 'Exam-ready', practice: 1, review: true, pause: 1.3 },
-  assignment: { id: 'assignment', label: 'Do an assignment on it', practice: 0.5, review: false, pause: 1.25 },
-  catchup: { id: 'catchup', label: 'Just catch up', practice: 0, review: false, pause: 1.1 },
+  exam: { id: 'exam', label: 'Exam-ready', practice: 1, review: true, pause: 1.05 },
+  assignment: { id: 'assignment', label: 'Do an assignment on it', practice: 0.5, review: false, pause: 1.05 },
+  catchup: { id: 'catchup', label: 'Just catch up', practice: 0, review: false, pause: 1.0 },
 };
 
 export const GRASP_SPEEDS = {
@@ -87,12 +90,14 @@ export function subtopicMinutes({ contentMinutes, complexity = 3, grasp = 0.3, g
   const gap = 1 - clamp(grasp, 0, 1);
   const known = grasp >= 0.8;
 
+  // Everything is proportional to how much of the lecture this subtopic covers, so
+  // listing more subtopics refines the split instead of inflating the total.
   // Already know it → skim the content at speed instead of full note-taking.
-  const content = contentMinutes * (known ? 0.55 : g.pause) * (1 + 0.3 * (learnerFactor - 1));
-  // Understanding: rewinding, re-reading, explaining it to yourself.
-  const understand = (3 + 5 * c * gap) * learnerFactor;
+  const content = contentMinutes * (known ? 0.6 : g.pause) * (1 + 0.25 * (learnerFactor - 1));
+  // Understanding: rewinding, re-reading, explaining it to yourself (≈20–35% extra when new).
+  const understand = contentMinutes * 0.07 * c * gap * learnerFactor;
   // Practice scales with difficulty and with how shaky the student is.
-  const practice = g.practice * (4 * c) * (0.5 + gap) * learnerFactor;
+  const practice = g.practice * contentMinutes * 0.05 * c * (0.3 + 0.7 * gap) * learnerFactor;
 
   const notes = [];
   if (known) notes.push('you know this — skim only');
@@ -140,7 +145,7 @@ export function buildBreakdown(input, { stamp = Date.now() } = {}) {
       confidence: 3,
       weightage: 4,
       ...t,
-      meta: { groupTitle, seq: seq + 1, noAutoReview: true, ...(t.meta || {}) },
+      meta: { groupTitle, seq: seq + 1, noAutoReview: true, bufferIncluded: true, ...(t.meta || {}) },
     };
     seq += 1;
     steps.push(step);
@@ -164,19 +169,10 @@ export function buildBreakdown(input, { stamp = Date.now() } = {}) {
     const unitContent = kind === 'lectures' ? length / speed : length * 4; // ~4 min/page of real reading
     const weightSum = subs.reduce((a, s) => a + s.complexity, 0);
 
-    const preview = add({
-      title: `Preview ${label}`,
-      taskType: 'revise',
-      difficulty: 1,
-      estimatedMinutes: 5,
-      dependsOn: prevUnitEnd && input.buildsOnPrevious ? [prevUnitEnd] : undefined,
-      materials: [input.hasSlides === false ? `${label} recording / notes` : `${label} slides`],
-      roadblock: 'Starting to study in detail during the preview',
-      stuckProtocol: 'Just skim headings and write 3 questions — details come in the next steps.',
-      meta: { kind: 'preview', unit: ui + 1, timeNote: 'Skim the slides and write 3 questions you want answered.' },
-    });
-
-    let chainEnd = preview.id;
+    // The preview (skim + write 3 questions) is folded into the first learning step: it's
+    // the first step of that session's script, and keeps each lecture on one day.
+    let chainEnd = prevUnitEnd && input.buildsOnPrevious ? prevUnitEnd : null;
+    let firstLearn = true;
     let practiceTotal = 0;
     const subReports = [];
 
@@ -186,7 +182,7 @@ export function buildBreakdown(input, { stamp = Date.now() } = {}) {
       practiceTotal += m.practice;
       subReports.push({ name: s.name, complexity: s.complexity, grasp: s.grasp, ...m });
 
-      const learnMinutes = m.content + m.understand;
+      const learnMinutes = m.content + m.understand + (firstLearn ? 5 : 0);
       const parts = Math.max(1, Math.ceil(learnMinutes / maxChunk));
       const per = round5(learnMinutes / parts);
       const knowledgeLevel = knowledgeLevelFromGrasp(s.grasp);
@@ -197,7 +193,7 @@ export function buildBreakdown(input, { stamp = Date.now() } = {}) {
           difficulty: clamp(Math.round(s.complexity * (1 - s.grasp * 0.5)), 1, 5),
           knowledgeLevel,
           estimatedMinutes: per,
-          dependsOn: [chainEnd],
+          dependsOn: chainEnd ? [chainEnd] : undefined,
           materials: [`${label}${kind === 'lectures' ? ' recording' : ''} — section on ${s.name}`],
           roadblock: s.grasp < 0.4 ? `${s.name} is new — it may not click the first time` : `Re-watching parts you already know`,
           stuckProtocol: `Stuck for 10 minutes on ${s.name}? Note the exact timestamp/question in your stuck list, skip ahead, and keep going — it gets resolved in the review.`,
@@ -205,11 +201,12 @@ export function buildBreakdown(input, { stamp = Date.now() } = {}) {
             kind: 'learn',
             unit: ui + 1,
             subtopic: s.name,
-            timeNote: `${parts > 1 ? `Whole topic (${parts} parts): ` : ''}${m.content}m ${kind === 'lectures' ? 'watching (with pauses)' : 'reading'} + ${m.understand}m understanding${m.notes.length ? ` — ${m.notes.join(', ')}` : ''}`,
+            timeNote: `${firstLearn && p === 1 ? 'Starts with a 5-min preview of the slides · ' : ''}${parts > 1 ? `Whole topic (${parts} parts): ` : ''}${m.content}m ${kind === 'lectures' ? 'watching (with pauses)' : 'reading'} + ${m.understand}m understanding${m.notes.length ? ` — ${m.notes.join(', ')}` : ''}`,
           },
         });
         chainEnd = step.id;
       }
+      firstLearn = false;
     });
 
     // Practice: one step per hard subtopic, or one combined step for the unit.
@@ -247,7 +244,7 @@ export function buildBreakdown(input, { stamp = Date.now() } = {}) {
       title: `Summarise ${label} on one page`,
       taskType: 'revise',
       difficulty: 2,
-      estimatedMinutes: round5(5 + 2 * subs.length),
+      estimatedMinutes: round5(4 + subs.length),
       dependsOn: [chainEnd],
       materials: ['Your notes', 'Your stuck list'],
       roadblock: 'Copying notes instead of recalling',
@@ -262,7 +259,7 @@ export function buildBreakdown(input, { stamp = Date.now() } = {}) {
         title: `Recall review: ${label}`,
         taskType: 'revise',
         difficulty: 2,
-        estimatedMinutes: round5(10 + 3 * subs.length),
+        estimatedMinutes: round5(8 + 2 * subs.length),
         dependsOn: [summary.id],
         materials: ['Blank paper', 'Your one-page summary'],
         roadblock: 'Rereading instead of recalling',
@@ -279,7 +276,7 @@ export function buildBreakdown(input, { stamp = Date.now() } = {}) {
       title: `Connect all ${input.units.length} ${kind}: one big-picture sheet`,
       taskType: 'revise',
       difficulty: 3,
-      estimatedMinutes: round5(15 + 5 * input.units.length),
+      estimatedMinutes: round5(10 + 4 * input.units.length),
       dependsOn: unitSummaries,
       materials: ['Your one-page summaries'],
       roadblock: 'Treating topics as unrelated',

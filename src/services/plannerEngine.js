@@ -379,8 +379,11 @@ function scoreCandidate({ day, i, n, draft, urgency, ctx }) {
   score -= day.dayIndex * (0.03 + 0.22 * urgency);
   score -= (startMin - day.wakeMin) * 0.00004;
 
-  // Balance load across days.
-  score -= (day.focusMinutes / Math.max(60, ctx.dailyCap)) * 0.35;
+  // Balance load across days — but only once a day goes past ~3h of focus (or 60% of a
+  // smaller cap), so a 2–3h task isn't sliced across the week when today has room.
+  const freeZone = Math.max(0.6, Math.min(1, 180 / Math.max(60, ctx.dailyCap)));
+  const loadAfter = (day.focusMinutes + draft.rawMinutes) / Math.max(60, ctx.dailyCap);
+  score -= Math.max(0, loadAfter - freeZone) * 0.7;
 
   // Continuity: a step should follow soon after the step it builds on (same or next day).
   if (draft.anchorDay !== undefined && draft.anchorDay !== null) {
@@ -395,13 +398,30 @@ function scoreCandidate({ day, i, n, draft, urgency, ctx }) {
   }
 
   // Distributed practice: discourage stacking the same task on one day unless urgent.
-  const sameTaskToday = day.sessions.filter((s) => s.taskId === draft.taskId).length;
-  score -= sameTaskToday * 0.18 * (1 - urgency);
+  // A task of a few hours should finish on the day it starts, not spill a last bit into tomorrow.
+  if (draft.taskMinutes <= 240 && draft.placedDays?.size && !draft.placedDays.has(day.dayIndex)) {
+    score -= 0.3;
+  }
+  // Same for one lecture/chapter of a broken-down plan: keep its steps together…
+  if (draft.unitDays?.size && !draft.unitDays.has(day.dayIndex)) {
+    score -= 0.3;
+  }
+  // …and only start a lecture on a day where the whole lecture still fits.
+  if (draft.unitStartMinutes && draft.unitStartMinutes > day.cap - day.focusMinutes) {
+    score -= 0.3;
+  }
+
+  // Up to ~3h of one task per day is fine (a 2–3h task should finish in a day);
+  // beyond that, spread the rest out unless it's urgent.
+  const sameTaskMinutes = day.sessions.filter((s) => s.taskId === draft.taskId).reduce((a, s) => a + s.rawMinutes, 0);
+  const overDaily = Math.max(0, sameTaskMinutes + draft.rawMinutes - 180) / 60;
+  score -= overDaily * 0.35 * (1 - urgency);
 
   // Interleave subjects; avoid back-to-back same subject on different tasks.
   const subject = draft.task.subject || draft.task.category;
   const prev = day.sessions.find((s) => s.endMin <= startMin && startMin - s.endMin <= 15);
-  if (prev && subject && (prev.task.subject || prev.task.category) === subject && prev.taskId !== draft.taskId) {
+  const samePlan = draft.task.groupId && prev?.task.groupId === draft.task.groupId; // steps of one lecture plan belong together
+  if (prev && subject && !samePlan && (prev.task.subject || prev.task.category) === subject && prev.taskId !== draft.taskId) {
     score -= 0.06;
   }
 
@@ -424,11 +444,14 @@ function scoreCandidate({ day, i, n, draft, urgency, ctx }) {
   return score;
 }
 
-function blockSlotsFor(day, i, rawMinutes) {
-  // Evening sessions get a slightly larger distraction buffer.
+function blockSlotsFor(day, i, rawMinutes, bufferIncluded = false) {
+  // Evening sessions get a slightly larger distraction buffer. Estimates that already
+  // include pause time (broken-down steps) get only a light buffer — no double padding.
   const hour = Math.floor((day.slots[i].min % 1440) / 60);
-  const bf = day.bf * (hour >= 20 || hour < 5 ? 1.1 : 1);
-  return roundUp(rawMinutes * bf, SLOT) / SLOT;
+  let bf = day.bf * (hour >= 20 || hour < 5 ? 1.1 : 1);
+  if (bufferIncluded) bf = 1 + (bf - 1) * 0.4;
+  // Nearest 5 minutes (not always up), but never shorter than the work itself.
+  return Math.max(Math.ceil(rawMinutes / SLOT), Math.round((rawMinutes * bf) / SLOT));
 }
 
 function bestSlotInDay({ day, draft, earliest, urgency, ctx }) {
@@ -437,7 +460,7 @@ function bestSlotInDay({ day, draft, earliest, urgency, ctx }) {
     const slot = day.slots[i];
     if (!slot.free) continue;
     if (earliest && day.dayIndex === earliest.dayIndex && slot.min < earliest.min) continue;
-    const n = blockSlotsFor(day, i, draft.rawMinutes);
+    const n = blockSlotsFor(day, i, draft.rawMinutes, Boolean(draft.task.meta?.bufferIncluded));
     if (!isRunFree(day, i, n)) continue;
     if (draft.difficulty >= 4 && slot.gap) continue;
     const score = scoreCandidate({ day, i, n, draft, urgency, ctx });
@@ -635,6 +658,13 @@ export function buildStudyPlan({
   plans.forEach(visit);
 
   const unscheduled = [];
+  const unitDays = new Map(); // "<groupId>:<unit>" → days that lecture's steps are on
+  const unitTotals = new Map(); // "<groupId>:<unit>" → minutes of that lecture (excluding reviews)
+  plans.forEach((p) => {
+    if (!p.task.groupId || !p.task.meta?.unit || p.task.meta?.kind === 'review') return;
+    const key = `${p.task.groupId}:${p.task.meta.unit}`;
+    unitTotals.set(key, (unitTotals.get(key) || 0) + p.remaining);
+  });
 
   ordered.forEach((p) => {
     const deps = depsOf(p.task).map((id) => byId.get(id));
@@ -655,6 +685,7 @@ export function buildStudyPlan({
     const gapDays = Number(p.task.meta?.minGapDays) || 0;
     if (earliest && gapDays > 0) earliest = { dayIndex: earliest.dayIndex + gapDays, min: 0 };
     const depAnchorDay = earliest ? earliest.dayIndex : null;
+    const unitKey = p.task.groupId && p.task.meta?.unit ? `${p.task.groupId}:${p.task.meta.unit}` : null;
     let remaining = p.remaining;
 
     while (remaining >= 5) {
@@ -680,6 +711,10 @@ export function buildStudyPlan({
           anchorDay: depAnchorDay,
           chainContinues: (children.get(p.task.id) || []).length > 0 || remaining > raw,
           earliestAbs: earliest ? earliest.dayIndex * 1440 + earliest.min : nowMin,
+          taskMinutes: p.remaining,
+          placedDays: new Set(p.placed.map((s) => s.dayIndex)),
+          unitDays: unitKey && p.task.meta?.kind !== 'review' ? unitDays.get(unitKey) : undefined,
+          unitStartMinutes: unitKey && p.task.meta?.kind !== 'review' && !unitDays.get(unitKey)?.size ? unitTotals.get(unitKey) : 0,
         };
         const candidate = bestSlotInDay({ day, draft, earliest, urgency: p.urgency, ctx });
         if (candidate && (!best || candidate.score > best.score)) {
@@ -700,6 +735,9 @@ export function buildStudyPlan({
       }
       const placed = commitPlacement({ best, draft: best.draft });
       p.placed.push(placed);
+      if (unitKey && p.task.meta?.kind !== 'review') {
+        unitDays.set(unitKey, new Set([...(unitDays.get(unitKey) || []), placed.dayIndex]));
+      }
       remaining -= bestRaw;
       earliest = { dayIndex: placed.dayIndex, min: placed.breakEnd };
     }

@@ -31,7 +31,7 @@ test('grasp comes from the quick self-check', () => {
 test('a new, hard topic gets far more time than a known, easy one', () => {
   const hardNew = subtopicMinutes({ contentMinutes: 20, complexity: 5, grasp: 0, goal: 'exam' });
   const easyKnown = subtopicMinutes({ contentMinutes: 20, complexity: 2, grasp: 1, goal: 'exam' });
-  assert.ok(hardNew.total > easyKnown.total * 3, `${hardNew.total} vs ${easyKnown.total}`);
+  assert.ok(hardNew.total > easyKnown.total * 2, `${hardNew.total} vs ${easyKnown.total}`);
 });
 
 test('slow graspers and slower measured pace get more time; fast ones less', () => {
@@ -52,8 +52,9 @@ test('3 lectures become ordered, chunked, personally-timed steps', () => {
   steps.filter((s) => s.meta.kind === 'learn').forEach((s) => assert.ok(s.estimatedMinutes <= 35));
   // Lecture 2 waits for lecture 1's summary; the final "connect" step waits for all summaries.
   const summaries = steps.filter((s) => s.meta.kind === 'summary');
-  const preview2 = steps.find((s) => s.meta.kind === 'preview' && s.meta.unit === 2);
-  assert.deepEqual(preview2.dependsOn, [summaries[0].id]);
+  const firstOfLecture2 = steps.find((s) => s.meta.unit === 2);
+  assert.equal(firstOfLecture2.meta.kind, 'learn'); // preview is folded into the first learning step
+  assert.deepEqual(firstOfLecture2.dependsOn, [summaries[0].id]);
   const connect = steps.find((s) => s.meta.kind === 'connect');
   assert.deepEqual(connect.dependsOn, summaries.map((s) => s.id));
 });
@@ -111,4 +112,32 @@ test('a 3-lecture exam plan fits alongside other work, starts today and finishes
   assert.ok(lecture.some((s) => s.dayIndex === 0), 'lecture plan starts today');
   // Exam on day 5: only recall reviews may land on exam day; everything else finishes earlier.
   lecture.filter((s) => s.taskData.meta.kind !== 'review').forEach((s) => assert.ok(s.dayIndex <= 4));
+});
+
+test('estimates stay realistic: 3h of new lectures is under 2x the video, known material ~1x', () => {
+  const total = (answers) => buildBreakdown(LECTURES({ cll: answers, dll: answers, stack: answers, queue: answers, trees: answers })).summary.totalMinutes;
+  const allNew = total(['no', 'no', 'no']);
+  const known = total(['know', 'know', 'know']);
+  assert.ok(allNew <= 2 * 180, `new: ${allNew} min`);
+  assert.ok(known <= 1.25 * 180, `known: ${known} min`);
+  assert.ok(allNew > known);
+});
+
+const HABITS = { chronotype: 'BALANCED', wakeTime: '07:30', sleepTime: '23:30', sessionStyle: 'pomodoro', distractionFactor: 1.25, habits: [{ name: 'Lunch', startTime: '13:00', endTime: '14:00' }] };
+
+test('a 2-3 hour task is finished on one day when that day has room', () => {
+  for (const minutes of [120, 150, 180]) {
+    const plan = buildStudyPlan({ now: new Date('2026-10-18T09:00:00'), horizonDays: 7, userHabits: HABITS, tasks: [{ id: 't', title: 'Finish DBMS assignment', taskType: 'assignment', quadrant: 'Q2', estimatedMinutes: minutes, difficulty: 3 }] });
+    const days = new Set(plan.sessions.filter((s) => s.kind === 'WORK').map((s) => s.dayIndex));
+    assert.equal(days.size, 1, `${minutes} min task spread over ${days.size} days`);
+  }
+});
+
+test('each lecture of a broken-down plan is completed within one day', () => {
+  const { steps } = buildBreakdown(LECTURES());
+  const plan = buildStudyPlan({ now: new Date('2026-10-18T09:00:00'), horizonDays: 7, userHabits: HABITS, tasks: steps });
+  [1, 2, 3].forEach((unit) => {
+    const days = new Set(plan.sessions.filter((s) => s.taskData.meta.unit === unit && s.taskData.meta.kind !== 'review').map((s) => s.dayIndex));
+    assert.equal(days.size, 1, `lecture ${unit} spread over ${days.size} days`);
+  });
 });

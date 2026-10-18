@@ -188,6 +188,7 @@ function sanitizeMeta(meta) {
     timeNote: str(meta.timeNote, 300),
     minGapDays: meta.minGapDays !== undefined ? clampInt(meta.minGapDays, 0, 7, 0) : undefined,
     noAutoReview: meta.noAutoReview ? true : undefined,
+    bufferIncluded: meta.bufferIncluded ? true : undefined,
   };
   Object.keys(clean).forEach((k) => clean[k] === undefined && delete clean[k]);
   return clean;
