@@ -10,17 +10,46 @@ export function FocusTimerModal({ block, onClose, onComplete }) {
   const [soundType, setSoundType] = useState('brown_noise'); // 'brown_noise', 'rain', 'binaural_alpha', 'none'
   const [isMuted, setIsMuted] = useState(false);
 
+  const endTimeRef = useRef(Date.now() + initialSeconds * 1000);
+
   useEffect(() => {
-    let interval = null;
-    if (isActive && secondsLeft > 0) {
-      interval = setInterval(() => {
-        setSecondsLeft((sec) => sec - 1);
-      }, 1000);
-    } else if (secondsLeft === 0) {
-      handleTimerFinish();
+    if (!isActive) {
+      endTimeRef.current = null;
+      return undefined;
     }
-    return () => clearInterval(interval);
-  }, [isActive, secondsLeft]);
+
+    if (!endTimeRef.current) {
+      endTimeRef.current = Date.now() + secondsLeft * 1000;
+    }
+
+    const syncTime = () => {
+      if (!endTimeRef.current) return;
+      const now = Date.now();
+      const diffMs = endTimeRef.current - now;
+      const remaining = Math.max(0, Math.ceil(diffMs / 1000));
+      setSecondsLeft(remaining);
+
+      if (diffMs <= 0) {
+        setIsActive(false);
+        endTimeRef.current = null;
+        handleTimerFinish();
+      }
+    };
+
+    const handleSync = () => {
+      if (endTimeRef.current) syncTime();
+    };
+
+    document.addEventListener('visibilitychange', handleSync);
+    window.addEventListener('focus', handleSync);
+    const interval = setInterval(syncTime, 250);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleSync);
+      window.removeEventListener('focus', handleSync);
+    };
+  }, [isActive]);
 
   // Ambient sound management
   useEffect(() => {

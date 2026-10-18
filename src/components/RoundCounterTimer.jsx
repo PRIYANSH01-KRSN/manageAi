@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, RotateCcw, Check, X, CheckCircle2, Sliders, Sparkles, Clock, ArrowRight, ChevronDown, Lightbulb, ShieldAlert, ListChecks, Inbox, Plus, Flag, HelpCircle } from 'lucide-react';
 import { playAmbientSound, stopAmbientSound, playCompletionChime } from '../utils/audioSynthesizer';
 import { StuckModal } from './StuckModal';
@@ -49,31 +49,87 @@ export function RoundCounterTimer({
   const [aiLoading, setAiLoading] = useState(false);
   const [showStuck, setShowStuck] = useState(false);
 
+  const endTimeRef = useRef(null);
+  const startEpochRef = useRef(null);
+  const startSecRef = useRef(0);
+
   // Reset when the session changes.
   useEffect(() => {
     setLadderIdx(0);
     setSecondsLeft((currentBlock?.rawDuration || 25) * 60);
     setElapsedSec(0);
     setIsActive(false);
+    endTimeRef.current = null;
+    startEpochRef.current = null;
+    startSecRef.current = 0;
   }, [currentBlock?.id]);
 
-  // Countdown + real elapsed-time tracking (feeds personal pace calibration).
+  // High-precision countdown + elapsed-time tracking backed by real timestamps.
+  // When browser tabs are backgrounded, browsers throttle setInterval; timestamp deltas
+  // ensure the timer never loses seconds or stops when reading in another tab.
   useEffect(() => {
-    if (!isActive) return undefined;
-    const interval = setInterval(() => {
-      setElapsedSec((e) => e + 1);
-      setSecondsLeft((s) => {
-        if (s <= 1) {
-          setIsActive(false);
-          stopAmbientSound();
-          playCompletionChime();
-          return 0;
-        }
-        return s - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
+    if (!isActive) {
+      endTimeRef.current = null;
+      return undefined;
+    }
+
+    if (!endTimeRef.current) {
+      endTimeRef.current = Date.now() + secondsLeft * 1000;
+      startEpochRef.current = Date.now();
+      startSecRef.current = elapsedSec;
+    }
+
+    const syncTime = () => {
+      if (!endTimeRef.current) return;
+      const now = Date.now();
+      const diffMs = endTimeRef.current - now;
+      const remaining = Math.max(0, Math.ceil(diffMs / 1000));
+      setSecondsLeft(remaining);
+
+      if (startEpochRef.current) {
+        const elapsed = Math.max(0, Math.round(startSecRef.current + (now - startEpochRef.current) / 1000));
+        setElapsedSec(elapsed);
+      }
+
+      if (diffMs <= 0) {
+        setIsActive(false);
+        endTimeRef.current = null;
+        stopAmbientSound();
+        playCompletionChime();
+      }
+    };
+
+    // Immediate sync when returning from another tab or window focus
+    const handleSync = () => {
+      if (endTimeRef.current) syncTime();
+    };
+
+    document.addEventListener('visibilitychange', handleSync);
+    window.addEventListener('focus', handleSync);
+
+    // 250ms interval for responsive ticking
+    const interval = setInterval(syncTime, 250);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleSync);
+      window.removeEventListener('focus', handleSync);
+    };
   }, [isActive]);
+
+  // Keep browser tab title updated with countdown so student can see progress from another tab
+  useEffect(() => {
+    if (isActive && currentBlock?.taskTitle) {
+      const min = Math.floor(secondsLeft / 60);
+      const sec = secondsLeft % 60;
+      document.title = `(${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}) ${currentBlock.taskTitle}`;
+    } else {
+      document.title = 'Manage by AI — the Energy Sequencer for students';
+    }
+    return () => {
+      document.title = 'Manage by AI — the Energy Sequencer for students';
+    };
+  }, [isActive, secondsLeft, currentBlock?.taskTitle]);
 
   useEffect(() => {
     if (isActive && soundType !== 'none') playAmbientSound(soundType, 0.15);
@@ -150,6 +206,7 @@ export function RoundCounterTimer({
   const actualMinutes = elapsedSec >= 60 ? Math.round(elapsedSec / 60) : null;
   const finish = (fn) => {
     setIsActive(false);
+    endTimeRef.current = null;
     stopAmbientSound();
     fn(currentBlock, { actualMinutes });
   };
@@ -157,8 +214,42 @@ export function RoundCounterTimer({
   const handleCantStart = () => {
     const next = Math.min(ladderIdx + 1, ladder.length - 1);
     setLadderIdx(next);
-    setSecondsLeft((ladder[next]?.minutes || 2) * 60);
     setIsActive(false);
+    endTimeRef.current = null;
+    startEpochRef.current = null;
+    startSecRef.current = 0;
+    setSecondsLeft((ladder[next]?.minutes || 2) * 60);
+    setElapsedSec(0);
+  };
+
+  const toggleTimer = () => {
+    if (!isActive) {
+      endTimeRef.current = Date.now() + secondsLeft * 1000;
+      startEpochRef.current = Date.now();
+      startSecRef.current = elapsedSec;
+      setIsActive(true);
+    } else {
+      setIsActive(false);
+      endTimeRef.current = null;
+    }
+  };
+
+  const handleReset = () => {
+    setIsActive(false);
+    endTimeRef.current = null;
+    startEpochRef.current = null;
+    startSecRef.current = 0;
+    setSecondsLeft(sessionMinutes * 60);
+    setElapsedSec(0);
+  };
+
+  const handleAddMoreTime = () => {
+    const next = secondsLeft + 10 * 60;
+    setSecondsLeft(next);
+    endTimeRef.current = Date.now() + next * 1000;
+    startEpochRef.current = Date.now();
+    startSecRef.current = elapsedSec;
+    setIsActive(true);
   };
 
   const handleAI = async () => {
@@ -269,15 +360,15 @@ export function RoundCounterTimer({
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1.25rem', flexWrap: 'wrap', justifyContent: 'center' }}>
             {!finished ? (
-              <button className="btn-primary" onClick={() => setIsActive(!isActive)} id="round-timer-toggle-btn">
+              <button className="btn-primary" onClick={toggleTimer} id="round-timer-toggle-btn">
                 {isActive ? <><Pause size={16} /> Pause</> : <><Play size={16} fill="currentColor" /> {elapsedSec > 0 ? 'Resume' : 'Start'}</>}
               </button>
             ) : currentBlock.budget ? null : (
-              <button className="btn-secondary" onClick={() => { setSecondsLeft(10 * 60); setIsActive(true); }}>
+              <button className="btn-secondary" onClick={handleAddMoreTime}>
                 <Plus size={14} /> 10 more min
               </button>
             )}
-            <button className="icon-btn" onClick={() => { setIsActive(false); setSecondsLeft(sessionMinutes * 60); }} title="Reset timer" id="round-timer-reset-btn">
+            <button className="icon-btn" onClick={handleReset} title="Reset timer" id="round-timer-reset-btn">
               <RotateCcw size={16} />
             </button>
           </div>
