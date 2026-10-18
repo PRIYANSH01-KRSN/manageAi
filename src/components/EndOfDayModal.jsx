@@ -24,7 +24,7 @@ export function EndOfDayModal({ isOpen, onClose, todayStats, tomorrow, parkingLo
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           <Moon size={13} /> Wrap up today
         </div>
-        <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#ffffff', margin: '0.3rem 0 0.75rem' }}>
+        <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--fg)', margin: '0.3rem 0 0.75rem' }}>
           {doneCount}/{plannedCount} sessions · {(doneMinutes / 60).toFixed(1)}h focused
         </h2>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', lineHeight: 1.55, marginBottom: '1.25rem' }}>{messageFor(doneCount, plannedCount)}</p>
@@ -32,7 +32,7 @@ export function EndOfDayModal({ isOpen, onClose, todayStats, tomorrow, parkingLo
         {firstTomorrow && (
           <div style={{ background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '0.85rem 1rem', marginBottom: '1rem' }}>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Tomorrow starts with</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#ffffff', fontSize: '0.88rem', fontWeight: 600 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--fg)', fontSize: '0.88rem', fontWeight: 600 }}>
               <ArrowRight size={14} /> {firstTomorrow.startTime} · {firstTomorrow.taskTitle}
             </div>
             <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>

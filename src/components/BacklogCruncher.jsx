@@ -120,7 +120,7 @@ export function BacklogCruncher({
       {/* Top Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.75rem', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '1rem' }}>
         <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--fg)', letterSpacing: '-0.02em' }}>
             Backlog & Strategic Planner
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.825rem', marginTop: '0.2rem' }}>
@@ -175,13 +175,13 @@ export function BacklogCruncher({
               Strategic Timeline Target
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.35rem' }}>
-              <span style={{ fontSize: '1rem', fontWeight: 800, color: '#ffffff' }}>Target Timeline:</span>
+              <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--fg)' }}>Target Timeline:</span>
               <select
                 value={targetDeadlineDays}
                 onChange={(e) => onUpdateTargetDeadlineDays && onUpdateTargetDeadlineDays(Number(e.target.value))}
                 style={{
                   background: 'var(--bg-card)',
-                  color: '#ffffff',
+                  color: 'var(--fg)',
                   border: '1px solid var(--border-strong)',
                   borderRadius: 'var(--radius-full)',
                   padding: '0.35rem 0.85rem',
@@ -205,13 +205,13 @@ export function BacklogCruncher({
           <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
             <div>
               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Total Workload</div>
-              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#ffffff', fontFamily: 'var(--font-mono)' }}>
+              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--fg)', fontFamily: 'var(--font-mono)' }}>
                 {totalHours}h ({tasks.length} tasks)
               </div>
             </div>
             <div>
               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Required Pace</div>
-              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: isHighCrunch ? '#f87171' : '#ffffff', fontFamily: 'var(--font-mono)' }}>
+              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: isHighCrunch ? 'var(--danger)' : 'var(--fg)', fontFamily: 'var(--font-mono)' }}>
                 {hoursPerDay}h / day
               </div>
             </div>
@@ -227,11 +227,11 @@ export function BacklogCruncher({
           alignItems: 'center', 
           gap: '0.5rem',
           fontSize: '0.8rem',
-          color: isExtremeCrunch ? '#fca5a5' : (isHighCrunch ? '#fde68a' : 'var(--text-secondary)')
+          color: isExtremeCrunch ? 'var(--danger-text)' : (isHighCrunch ? 'var(--warn-text)' : 'var(--text-secondary)')
         }}>
           {isExtremeCrunch ? (
             <>
-              <AlertTriangle size={15} style={{ color: '#ef4444', flexShrink: 0 }} />
+              <AlertTriangle size={15} style={{ color: 'var(--danger)', flexShrink: 0 }} />
               <span>
                 <strong>Overloaded:</strong> {((feasibility?.unscheduledMinutes || 0) / 60).toFixed(1)}h won't fit before its deadline within your real free time
                 {unscheduled.length > 0 && <> ({unscheduled.map((u) => u.title).join(', ')})</>}. Prune Q4 work, extend the window, or raise your daily focus cap in Habits — the planner never eats into sleep.
@@ -239,14 +239,14 @@ export function BacklogCruncher({
             </>
           ) : isHighCrunch ? (
             <>
-              <AlertTriangle size={15} style={{ color: '#f59e0b', flexShrink: 0 }} />
+              <AlertTriangle size={15} style={{ color: 'var(--warn)', flexShrink: 0 }} />
               <span>
                 <strong>Tight Timeline:</strong> this uses over 80% of your free focus time ({((feasibility?.availableMinutes || 0) / 60).toFixed(1)}h available). Q1/Q2 work is placed first; keep your planned breaks.
               </span>
             </>
           ) : (
             <>
-              <CheckCircle2 size={15} style={{ color: '#ffffff', flexShrink: 0 }} />
+              <CheckCircle2 size={15} style={{ color: 'var(--fg)', flexShrink: 0 }} />
               <span>
                 <strong>Feasible Pace:</strong> ~{hoursPerDay}h/day of focus fits around your classes, meals and sleep{feasibility ? ` (${((feasibility.availableMinutes || 0) / 60).toFixed(1)}h free in this window)` : ''}.
               </span>
@@ -258,7 +258,7 @@ export function BacklogCruncher({
       {/* Add Task Form */}
       {showAddForm && (
         <form onSubmit={handleCreate} style={{ background: 'var(--bg-card-subtle)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-md)', padding: '1.25rem', marginBottom: '1.75rem' }}>
-          <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '1rem', color: '#ffffff' }}>Add New Task to Planner</h3>
+          <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '1rem', color: 'var(--fg)' }}>Add New Task to Planner</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.85rem', marginBottom: '1rem' }}>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Task Title / Deliverable *</label>
@@ -287,7 +287,7 @@ export function BacklogCruncher({
                   style={{
                     background: 'transparent',
                     border: 'none',
-                    color: isUncertain ? '#ffffff' : 'var(--text-muted)',
+                    color: isUncertain ? 'var(--fg)' : 'var(--text-muted)',
                     fontSize: '0.72rem',
                     textDecoration: 'underline',
                     cursor: 'pointer',
@@ -306,7 +306,7 @@ export function BacklogCruncher({
                     step="15" 
                     value={estimatedMinutes} 
                     onChange={(e) => setEstimatedMinutes(Number(e.target.value))}
-                    style={{ width: '100%', accentColor: '#ffffff' }} 
+                    style={{ width: '100%', accentColor: 'var(--fg)' }} 
                   />
                   {/* Quick Preset Buttons */}
                   <div style={{ display: 'flex', gap: '0.35rem', marginTop: '0.35rem' }}>
@@ -316,8 +316,8 @@ export function BacklogCruncher({
                         type="button"
                         onClick={() => setEstimatedMinutes(m)}
                         style={{
-                          background: estimatedMinutes === m ? '#ffffff' : 'transparent',
-                          color: estimatedMinutes === m ? '#000000' : 'var(--text-muted)',
+                          background: estimatedMinutes === m ? 'var(--fg)' : 'transparent',
+                          color: estimatedMinutes === m ? 'var(--fg-inverse)' : 'var(--text-muted)',
                           border: '1px solid var(--border-subtle)',
                           borderRadius: 'var(--radius-sm)',
                           padding: '0.15rem 0.4rem',
@@ -339,7 +339,7 @@ export function BacklogCruncher({
 
             {/* Volume-based realistic estimate */}
             <div style={{ gridColumn: '1 / -1', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '0.75rem' }}>
-              <div style={{ fontSize: '0.75rem', color: '#ffffff', fontWeight: 700, marginBottom: '0.5rem' }}>Not sure how long? Describe the amount and we'll estimate realistically</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--fg)', fontWeight: 700, marginBottom: '0.5rem' }}>Not sure how long? Describe the amount and we'll estimate realistically</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.5rem' }}>
                 <select className="input-field" value={volumeType} onChange={(e) => setVolumeType(e.target.value)}>
                   {VOLUME_TYPES.map((v) => (
@@ -356,7 +356,7 @@ export function BacklogCruncher({
               {volumeEstimate && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginTop: '0.6rem', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
                   <span>
-                    Realistic: <strong style={{ color: '#ffffff' }}>{volumeEstimate.planned}m</strong> (best {volumeEstimate.optimistic}m · worst {volumeEstimate.pessimistic}m)
+                    Realistic: <strong style={{ color: 'var(--fg)' }}>{volumeEstimate.planned}m</strong> (best {volumeEstimate.optimistic}m · worst {volumeEstimate.pessimistic}m)
                     <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-faint)' }}>{volumeEstimate.explanation}</span>
                   </span>
                   <button type="button" className="btn-secondary" style={{ padding: '0.25rem 0.6rem', fontSize: '0.72rem' }} onClick={() => { setIsUncertain(false); setEstimatedMinutes(volumeEstimate.planned); }}>
@@ -365,12 +365,12 @@ export function BacklogCruncher({
                 </div>
               )}
               {estimateWarnings.map((w) => (
-                <div key={w.text} style={{ display: 'flex', gap: '0.4rem', marginTop: '0.5rem', fontSize: '0.75rem', color: w.level === 'info' ? 'var(--text-muted)' : '#fde68a' }}>
+                <div key={w.text} style={{ display: 'flex', gap: '0.4rem', marginTop: '0.5rem', fontSize: '0.75rem', color: w.level === 'info' ? 'var(--text-muted)' : 'var(--warn-text)' }}>
                   <AlertTriangle size={13} style={{ flexShrink: 0, marginTop: '0.15rem' }} />
                   <span>
                     {w.text}
                     {w.suggested && w.suggested !== Number(estimatedMinutes) && (
-                      <button type="button" onClick={() => setEstimatedMinutes(w.suggested)} style={{ marginLeft: '0.4rem', background: 'transparent', border: 'none', color: '#ffffff', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.75rem' }}>
+                      <button type="button" onClick={() => setEstimatedMinutes(w.suggested)} style={{ marginLeft: '0.4rem', background: 'transparent', border: 'none', color: 'var(--fg)', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.75rem' }}>
                         Use {w.suggested}m
                       </button>
                     )}
@@ -405,7 +405,7 @@ export function BacklogCruncher({
               <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
                 Difficulty: <strong>{difficulty}/5</strong> {difficulty >= 4 ? '(placed in peak hours)' : difficulty <= 2 ? '(kept out of peak hours)' : ''}
               </label>
-              <input type="range" min="1" max="5" step="1" value={difficulty} onChange={(e) => setDifficulty(Number(e.target.value))} style={{ width: '100%', accentColor: '#ffffff' }} />
+              <input type="range" min="1" max="5" step="1" value={difficulty} onChange={(e) => setDifficulty(Number(e.target.value))} style={{ width: '100%', accentColor: 'var(--fg)' }} />
             </div>
 
             <div>
@@ -435,12 +435,12 @@ export function BacklogCruncher({
             const pct = p.total ? Math.round((p.done / p.total) * 100) : 0;
             return (
               <div key={name} style={{ background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '0.55rem 0.75rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#ffffff' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--fg)' }}>
                   <span>{name}</span>
                   <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{pct}% · {((p.total - p.done) / 60).toFixed(1)}h left</span>
                 </div>
                 <div style={{ height: '4px', background: 'var(--border-subtle)', borderRadius: '2px', marginTop: '0.35rem' }}>
-                  <div style={{ width: `${pct}%`, height: '100%', background: '#ffffff', borderRadius: '2px' }} />
+                  <div style={{ width: `${pct}%`, height: '100%', background: 'var(--fg)', borderRadius: '2px' }} />
                 </div>
               </div>
             );
@@ -469,7 +469,7 @@ export function BacklogCruncher({
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
                 <div>
-                  <strong style={{ fontSize: '0.875rem', color: '#ffffff' }}>{qKey}: {qObj.name}</strong>
+                  <strong style={{ fontSize: '0.875rem', color: 'var(--fg)' }}>{qKey}: {qObj.name}</strong>
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{qObj.subtitle}</div>
                 </div>
                 <span className="badge">{qTasks.length}</span>
@@ -496,7 +496,7 @@ export function BacklogCruncher({
                       }}
                     >
                       <div>
-                        <div style={{ fontSize: '0.825rem', fontWeight: 600, color: '#ffffff' }}>
+                        <div style={{ fontSize: '0.825rem', fontWeight: 600, color: 'var(--fg)' }}>
                           {t.title}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
@@ -543,7 +543,7 @@ export function BacklogCruncher({
       {showBatchModal && (
         <div className="modal-overlay" role="dialog">
           <div className="modal-container" style={{ padding: '1.75rem' }}>
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '0.4rem', color: '#ffffff' }}>
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '0.4rem', color: 'var(--fg)' }}>
               AI Batch Backlog Cruncher
             </h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.825rem', marginBottom: '1.25rem' }}>

@@ -47,7 +47,7 @@ export function SettingsModal({
             id="gemini-api-key-input"
           />
           <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-            <ShieldCheck size={14} style={{ color: '#34d399' }} />
+            <ShieldCheck size={14} style={{ color: 'var(--success)' }} />
             Stored strictly in your local browser storage. Never transmitted to third parties.
           </div>
         </div>

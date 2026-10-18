@@ -23,14 +23,14 @@ function WeeklyReview({ sessionLogs = [], calibration = {} }) {
   return (
     <div style={{ background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '1.25rem', marginBottom: '2rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
-        <strong style={{ fontSize: '0.95rem', color: '#ffffff' }}>This week</strong>
+        <strong style={{ fontSize: '0.95rem', color: 'var(--fg)' }}>This week</strong>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{(total / 60).toFixed(1)}h focused · {weekLogs.filter((l) => l.status !== 'NOT_DONE').length} sessions</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem', height: '90px', marginBottom: '0.75rem' }}>
         {days.map((d) => (
           <div key={d.key} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
             <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{d.minutes ? `${(d.minutes / 60).toFixed(1)}h` : ''}</span>
-            <div title={`${d.minutes} min`} style={{ width: '100%', maxWidth: '36px', height: `${Math.max(2, (d.minutes / max) * 60)}px`, background: d.minutes ? '#ffffff' : 'var(--border-subtle)', borderRadius: '3px 3px 0 0' }} />
+            <div title={`${d.minutes} min`} style={{ width: '100%', maxWidth: '36px', height: `${Math.max(2, (d.minutes / max) * 60)}px`, background: d.minutes ? 'var(--fg)' : 'var(--border-subtle)', borderRadius: '3px 3px 0 0' }} />
             <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{d.label}</span>
           </div>
         ))}
@@ -70,7 +70,7 @@ export function AIInsightsPanel({
   return (
     <div className="mono-card" style={{ marginBottom: '2.5rem' }}>
       <div style={{ marginBottom: '1.75rem', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '1rem' }}>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--fg)', letterSpacing: '-0.02em' }}>
           Adaptive Memory & Recalibration Analytics
         </h2>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.825rem', marginTop: '0.2rem' }}>
@@ -82,13 +82,13 @@ export function AIInsightsPanel({
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
         <div style={{ background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '1.25rem' }}>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Success Rate</div>
-          <div style={{ fontSize: '2rem', fontWeight: 800, color: '#ffffff', marginTop: '0.25rem' }}>{rate}%</div>
+          <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--fg)', marginTop: '0.25rem' }}>{rate}%</div>
           <div style={{ fontSize: '0.72rem', color: 'var(--text-faint)', marginTop: '0.2rem' }}>{completed} completed • {stalled} recalibrated</div>
         </div>
 
         <div style={{ background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '1.25rem' }}>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Adaptive Buffer</div>
-          <div style={{ fontSize: '2rem', fontWeight: 800, color: '#ffffff', marginTop: '0.25rem' }}>
+          <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--fg)', marginTop: '0.25rem' }}>
             +{Math.round(((userHabits?.distractionFactor || 1.25) * learnedBufferInflation - 1) * 100)}%
           </div>
           <div style={{ fontSize: '0.72rem', color: 'var(--text-faint)', marginTop: '0.2rem' }}>Automatic human cushion factor</div>
@@ -96,7 +96,7 @@ export function AIInsightsPanel({
 
         <div style={{ background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '1.25rem' }}>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fatigue Hours</div>
-          <div style={{ fontSize: '2rem', fontWeight: 800, color: '#ffffff', marginTop: '0.25rem' }}>
+          <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--fg)', marginTop: '0.25rem' }}>
             {learnedFatigueHours.length}
           </div>
           <div style={{ fontSize: '0.72rem', color: 'var(--text-faint)', marginTop: '0.2rem' }}>
@@ -109,7 +109,7 @@ export function AIInsightsPanel({
 
       {/* Recalibration Log Feed */}
       <div>
-        <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.75rem' }}>
+        <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--fg)', marginBottom: '0.75rem' }}>
           Recalibration History Log
         </h3>
         {reviewHistory.length === 0 ? (
@@ -134,7 +134,7 @@ export function AIInsightsPanel({
                 }}
               >
                 <div>
-                  <strong style={{ fontSize: '0.85rem', color: '#ffffff' }}>{rev.taskTitle}</strong>
+                  <strong style={{ fontSize: '0.85rem', color: 'var(--fg)' }}>{rev.taskTitle}</strong>
                   {rev.userNote && (
                     <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
                       "{rev.userNote}"

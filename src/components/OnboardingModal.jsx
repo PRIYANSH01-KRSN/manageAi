@@ -71,7 +71,7 @@ export function OnboardingModal({ isOpen, onClose, onSaveRoutine }) {
                 height: '4px',
                 flex: 1,
                 borderRadius: '9999px',
-                background: s <= step ? '#ffffff' : 'var(--border-subtle)',
+                background: s <= step ? 'var(--fg)' : 'var(--border-subtle)',
                 transition: 'all 0.2s ease',
               }}
             />
@@ -84,7 +84,7 @@ export function OnboardingModal({ isOpen, onClose, onSaveRoutine }) {
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>
               Step 1 of 4 • Circadian Foundation
             </div>
-            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>
+            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--fg)', letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>
               What is your natural sleep & wake routine?
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.825rem', marginBottom: '1.5rem' }}>
@@ -93,7 +93,7 @@ export function OnboardingModal({ isOpen, onClose, onSaveRoutine }) {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
               <div style={{ background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '1.25rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#ffffff', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--fg)', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.5rem' }}>
                   <Sun size={15} /> Natural Wake Time
                 </div>
                 <input
@@ -106,7 +106,7 @@ export function OnboardingModal({ isOpen, onClose, onSaveRoutine }) {
               </div>
 
               <div style={{ background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '1.25rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#ffffff', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--fg)', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.5rem' }}>
                   <Moon size={15} /> Usual Bedtime
                 </div>
                 <input
@@ -127,7 +127,7 @@ export function OnboardingModal({ isOpen, onClose, onSaveRoutine }) {
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>
               Step 2 of 4 • Biological Peak
             </div>
-            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>
+            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--fg)', letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>
               When is your mental stamina at its highest?
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.825rem', marginBottom: '1.5rem' }}>
@@ -146,15 +146,15 @@ export function OnboardingModal({ isOpen, onClose, onSaveRoutine }) {
                   style={{
                     padding: '1rem 1.15rem',
                     borderRadius: 'var(--radius-md)',
-                    background: chronotype === c.id ? '#ffffff' : 'var(--bg-card-subtle)',
-                    color: chronotype === c.id ? '#000000' : '#ffffff',
-                    border: chronotype === c.id ? '1px solid #ffffff' : '1px solid var(--border-subtle)',
+                    background: chronotype === c.id ? 'var(--fg)' : 'var(--bg-card-subtle)',
+                    color: chronotype === c.id ? 'var(--fg-inverse)' : 'var(--fg)',
+                    border: chronotype === c.id ? '1px solid var(--fg)' : '1px solid var(--border-subtle)',
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
                   }}
                 >
                   <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '0.2rem' }}>{c.title}</div>
-                  <div style={{ fontSize: '0.75rem', color: chronotype === c.id ? '#3f3f46' : 'var(--text-muted)' }}>{c.desc}</div>
+                  <div style={{ fontSize: '0.75rem', color: chronotype === c.id ? 'var(--fg-inverse-muted)' : 'var(--text-muted)' }}>{c.desc}</div>
                 </div>
               ))}
             </div>
@@ -167,7 +167,7 @@ export function OnboardingModal({ isOpen, onClose, onSaveRoutine }) {
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>
               Step 3 of 4 • Daily Life Architecture
             </div>
-            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>
+            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--fg)', letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>
               Which daily non-negotiables should we protect?
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.825rem', marginBottom: '1.5rem' }}>
@@ -177,32 +177,32 @@ export function OnboardingModal({ isOpen, onClose, onSaveRoutine }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '1.5rem' }}>
               <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.85rem 1rem', background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}>
                 <div>
-                  <div style={{ color: '#ffffff', fontSize: '0.85rem', fontWeight: 600 }}>Lunch & Screen Break (13:00 - 14:00)</div>
+                  <div style={{ color: 'var(--fg)', fontSize: '0.85rem', fontWeight: 600 }}>Lunch & Screen Break (13:00 - 14:00)</div>
                   <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Preserves mid-day mental recovery</div>
                 </div>
-                <input type="checkbox" checked={includeLunch} onChange={(e) => setIncludeLunch(e.target.checked)} style={{ accentColor: '#ffffff', width: '16px', height: '16px' }} />
+                <input type="checkbox" checked={includeLunch} onChange={(e) => setIncludeLunch(e.target.checked)} style={{ accentColor: 'var(--fg)', width: '16px', height: '16px' }} />
               </label>
 
               <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.85rem 1rem', background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}>
                 <div>
-                  <div style={{ color: '#ffffff', fontSize: '0.85rem', fontWeight: 600 }}>Dinner & Evening Wind-Down (19:30 - 20:30)</div>
+                  <div style={{ color: 'var(--fg)', fontSize: '0.85rem', fontWeight: 600 }}>Dinner & Evening Wind-Down (19:30 - 20:30)</div>
                   <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Guarantees a clean break before bed</div>
                 </div>
-                <input type="checkbox" checked={includeDinner} onChange={(e) => setIncludeDinner(e.target.checked)} style={{ accentColor: '#ffffff', width: '16px', height: '16px' }} />
+                <input type="checkbox" checked={includeDinner} onChange={(e) => setIncludeDinner(e.target.checked)} style={{ accentColor: 'var(--fg)', width: '16px', height: '16px' }} />
               </label>
 
               <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.85rem 1rem', background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}>
                 <div>
-                  <div style={{ color: '#ffffff', fontSize: '0.85rem', fontWeight: 600 }}>Exercise / Gym / Walk (17:30 - 18:30)</div>
+                  <div style={{ color: 'var(--fg)', fontSize: '0.85rem', fontWeight: 600 }}>Exercise / Gym / Walk (17:30 - 18:30)</div>
                   <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Physical stamina restoration window</div>
                 </div>
-                <input type="checkbox" checked={includeExercise} onChange={(e) => setIncludeExercise(e.target.checked)} style={{ accentColor: '#ffffff', width: '16px', height: '16px' }} />
+                <input type="checkbox" checked={includeExercise} onChange={(e) => setIncludeExercise(e.target.checked)} style={{ accentColor: 'var(--fg)', width: '16px', height: '16px' }} />
               </label>
 
               <div style={{ padding: '0.85rem 1rem', background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ color: '#ffffff', fontSize: '0.85rem', fontWeight: 600 }}>Guilt-free leisure every day: {leisureMinutes} min</div>
+                <div style={{ color: 'var(--fg)', fontSize: '0.85rem', fontWeight: 600 }}>Guilt-free leisure every day: {leisureMinutes} min</div>
                 <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginBottom: '0.4rem' }}>Games, shows, friends — planned and protected, so rest never feels "stolen"</div>
-                <input type="range" min="0" max="180" step="15" value={leisureMinutes} onChange={(e) => setLeisureMinutes(Number(e.target.value))} style={{ width: '100%', accentColor: '#ffffff' }} />
+                <input type="range" min="0" max="180" step="15" value={leisureMinutes} onChange={(e) => setLeisureMinutes(Number(e.target.value))} style={{ width: '100%', accentColor: 'var(--fg)' }} />
               </div>
             </div>
           </div>
@@ -214,7 +214,7 @@ export function OnboardingModal({ isOpen, onClose, onSaveRoutine }) {
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>
               Step 4 of 4 • Realistic Calibration
             </div>
-            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>
+            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--fg)', letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>
               How easily do you get pulled away?
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.825rem', marginBottom: '1.5rem' }}>
@@ -234,21 +234,21 @@ export function OnboardingModal({ isOpen, onClose, onSaveRoutine }) {
                     padding: '1rem',
                     textAlign: 'center',
                     borderRadius: 'var(--radius-md)',
-                    background: distractionLevel === d.id ? '#ffffff' : 'var(--bg-card-subtle)',
-                    color: distractionLevel === d.id ? '#000000' : '#ffffff',
-                    border: distractionLevel === d.id ? '1px solid #ffffff' : '1px solid var(--border-subtle)',
+                    background: distractionLevel === d.id ? 'var(--fg)' : 'var(--bg-card-subtle)',
+                    color: distractionLevel === d.id ? 'var(--fg-inverse)' : 'var(--fg)',
+                    border: distractionLevel === d.id ? '1px solid var(--fg)' : '1px solid var(--border-subtle)',
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
                   }}
                 >
                   <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>{d.title}</div>
                   <div style={{ fontSize: '1.1rem', fontWeight: 800, margin: '0.25rem 0', fontFamily: 'var(--font-mono)' }}>{d.buffer}</div>
-                  <div style={{ fontSize: '0.68rem', color: distractionLevel === d.id ? '#3f3f46' : 'var(--text-muted)' }}>{d.desc}</div>
+                  <div style={{ fontSize: '0.68rem', color: distractionLevel === d.id ? 'var(--fg-inverse-muted)' : 'var(--text-muted)' }}>{d.desc}</div>
                 </div>
               ))}
             </div>
 
-            <div style={{ fontSize: '0.8rem', color: '#ffffff', fontWeight: 700, marginBottom: '0.5rem' }}>Preferred study session length</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--fg)', fontWeight: 700, marginBottom: '0.5rem' }}>Preferred study session length</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
               {[
                 { id: 'pomodoro', title: 'Short sprints', desc: '25–30 min blocks, frequent breaks' },
@@ -260,14 +260,14 @@ export function OnboardingModal({ isOpen, onClose, onSaveRoutine }) {
                   style={{
                     padding: '0.85rem',
                     borderRadius: 'var(--radius-md)',
-                    background: sessionStyle === o.id ? '#ffffff' : 'var(--bg-card-subtle)',
-                    color: sessionStyle === o.id ? '#000000' : '#ffffff',
-                    border: sessionStyle === o.id ? '1px solid #ffffff' : '1px solid var(--border-subtle)',
+                    background: sessionStyle === o.id ? 'var(--fg)' : 'var(--bg-card-subtle)',
+                    color: sessionStyle === o.id ? 'var(--fg-inverse)' : 'var(--fg)',
+                    border: sessionStyle === o.id ? '1px solid var(--fg)' : '1px solid var(--border-subtle)',
                     cursor: 'pointer',
                   }}
                 >
                   <div style={{ fontWeight: 800, fontSize: '0.88rem' }}>{o.title}</div>
-                  <div style={{ fontSize: '0.7rem', color: sessionStyle === o.id ? '#3f3f46' : 'var(--text-muted)' }}>{o.desc}</div>
+                  <div style={{ fontSize: '0.7rem', color: sessionStyle === o.id ? 'var(--fg-inverse-muted)' : 'var(--text-muted)' }}>{o.desc}</div>
                 </div>
               ))}
             </div>

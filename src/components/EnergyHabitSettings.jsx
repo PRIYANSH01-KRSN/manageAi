@@ -33,7 +33,7 @@ export function EnergyHabitSettings({ userHabits = {}, onUpdateHabits }) {
   return (
     <div className="mono-card" style={{ marginBottom: '2.5rem' }}>
       <div style={{ marginBottom: '1.75rem', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '1rem' }}>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--fg)', letterSpacing: '-0.02em' }}>
           Habits & Circadian Rhythms
         </h2>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.825rem', marginTop: '0.2rem' }}>
@@ -43,7 +43,7 @@ export function EnergyHabitSettings({ userHabits = {}, onUpdateHabits }) {
 
       {/* Chronotypes */}
       <div style={{ marginBottom: '2rem' }}>
-        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.75rem' }}>
+        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--fg)', marginBottom: '0.75rem' }}>
           Select Circadian Chronotype
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.85rem' }}>
@@ -54,9 +54,9 @@ export function EnergyHabitSettings({ userHabits = {}, onUpdateHabits }) {
                 key={chrono.id}
                 onClick={() => handleChronoSelect(chrono.id)}
                 style={{
-                  background: isSelected ? '#ffffff' : 'var(--bg-card-subtle)',
-                  color: isSelected ? '#000000' : 'var(--text-primary)',
-                  border: isSelected ? '1px solid #ffffff' : '1px solid var(--border-subtle)',
+                  background: isSelected ? 'var(--fg)' : 'var(--bg-card-subtle)',
+                  color: isSelected ? 'var(--fg-inverse)' : 'var(--text-primary)',
+                  border: isSelected ? '1px solid var(--fg)' : '1px solid var(--border-subtle)',
                   borderRadius: 'var(--radius-md)',
                   padding: '1.15rem',
                   cursor: 'pointer',
@@ -66,7 +66,7 @@ export function EnergyHabitSettings({ userHabits = {}, onUpdateHabits }) {
                 <div style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '0.25rem' }}>
                   {chrono.name}
                 </div>
-                <div style={{ fontSize: '0.75rem', color: isSelected ? '#3f3f46' : 'var(--text-muted)' }}>
+                <div style={{ fontSize: '0.75rem', color: isSelected ? 'var(--fg-inverse-muted)' : 'var(--text-muted)' }}>
                   {chrono.description}
                 </div>
               </div>
@@ -89,13 +89,13 @@ export function EnergyHabitSettings({ userHabits = {}, onUpdateHabits }) {
           <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>
             Distraction Buffer: +{Math.round(((userHabits.distractionFactor || 1.25) - 1) * 100)}%
           </label>
-          <input type="range" min="1.0" max="1.5" step="0.05" value={userHabits.distractionFactor || 1.25} onChange={(e) => handleBufferChange(e.target.value)} style={{ width: '100%', accentColor: '#ffffff' }} />
+          <input type="range" min="1.0" max="1.5" step="0.05" value={userHabits.distractionFactor || 1.25} onChange={(e) => handleBufferChange(e.target.value)} style={{ width: '100%', accentColor: 'var(--fg)' }} />
         </div>
         <div>
           <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>
             Daily Focus Cap: {((userHabits.dailyFocusCapMinutes || 300) / 60).toFixed(1)}h of real study
           </label>
-          <input type="range" min="60" max="540" step="30" value={userHabits.dailyFocusCapMinutes || 300} onChange={(e) => onUpdateHabits({ ...userHabits, dailyFocusCapMinutes: Number(e.target.value) })} style={{ width: '100%', accentColor: '#ffffff' }} />
+          <input type="range" min="60" max="540" step="30" value={userHabits.dailyFocusCapMinutes || 300} onChange={(e) => onUpdateHabits({ ...userHabits, dailyFocusCapMinutes: Number(e.target.value) })} style={{ width: '100%', accentColor: 'var(--fg)' }} />
         </div>
         <div>
           <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Session Style</label>
@@ -108,7 +108,7 @@ export function EnergyHabitSettings({ userHabits = {}, onUpdateHabits }) {
           <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>
             Protected Leisure: {userHabits.leisureMinutes ?? 60} min/day
           </label>
-          <input type="range" min="0" max="180" step="15" value={userHabits.leisureMinutes ?? 60} onChange={(e) => onUpdateHabits({ ...userHabits, leisureMinutes: Number(e.target.value) })} style={{ width: '100%', accentColor: '#ffffff' }} />
+          <input type="range" min="0" max="180" step="15" value={userHabits.leisureMinutes ?? 60} onChange={(e) => onUpdateHabits({ ...userHabits, leisureMinutes: Number(e.target.value) })} style={{ width: '100%', accentColor: 'var(--fg)' }} />
         </div>
         <div>
           <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Leisure Time</label>
@@ -121,13 +121,13 @@ export function EnergyHabitSettings({ userHabits = {}, onUpdateHabits }) {
           <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>
             Wind-down Before Bed: {userHabits.windDownMinutes ?? 45} min
           </label>
-          <input type="range" min="0" max="90" step="15" value={userHabits.windDownMinutes ?? 45} onChange={(e) => onUpdateHabits({ ...userHabits, windDownMinutes: Number(e.target.value) })} style={{ width: '100%', accentColor: '#ffffff' }} />
+          <input type="range" min="0" max="90" step="15" value={userHabits.windDownMinutes ?? 45} onChange={(e) => onUpdateHabits({ ...userHabits, windDownMinutes: Number(e.target.value) })} style={{ width: '100%', accentColor: 'var(--fg)' }} />
         </div>
         <div>
           <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>
             Flex Reserve: {userHabits.flexPercent ?? 15}% of study time
           </label>
-          <input type="range" min="0" max="30" step="5" value={userHabits.flexPercent ?? 15} onChange={(e) => onUpdateHabits({ ...userHabits, flexPercent: Number(e.target.value) })} style={{ width: '100%', accentColor: '#ffffff' }} />
+          <input type="range" min="0" max="30" step="5" value={userHabits.flexPercent ?? 15} onChange={(e) => onUpdateHabits({ ...userHabits, flexPercent: Number(e.target.value) })} style={{ width: '100%', accentColor: 'var(--fg)' }} />
         </div>
         <div>
           <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Weekly Half-Day Off</label>
@@ -166,7 +166,7 @@ export function EnergyHabitSettings({ userHabits = {}, onUpdateHabits }) {
 
       {/* Blocked Daily Habits */}
       <div>
-        <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.75rem' }}>
+        <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--fg)', marginBottom: '0.75rem' }}>
           Protected Daily Routines
         </h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -187,7 +187,7 @@ export function EnergyHabitSettings({ userHabits = {}, onUpdateHabits }) {
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Clock size={13} style={{ color: 'var(--text-faint)' }} />
-                <strong style={{ fontSize: '0.85rem', color: '#ffffff' }}>{hb.name}</strong>
+                <strong style={{ fontSize: '0.85rem', color: 'var(--fg)' }}>{hb.name}</strong>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -198,8 +198,8 @@ export function EnergyHabitSettings({ userHabits = {}, onUpdateHabits }) {
                 <button
                   onClick={() => handleToggleStrict(hb.id)}
                   style={{
-                    background: hb.isStrict ? '#ffffff' : 'transparent',
-                    color: hb.isStrict ? '#000000' : 'var(--text-muted)',
+                    background: hb.isStrict ? 'var(--fg)' : 'transparent',
+                    color: hb.isStrict ? 'var(--fg-inverse)' : 'var(--text-muted)',
                     border: '1px solid var(--border-strong)',
                     borderRadius: 'var(--radius-full)',
                     padding: '0.2rem 0.55rem',

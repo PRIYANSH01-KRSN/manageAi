@@ -141,11 +141,13 @@ test('battle plan triages weak, high-weight chapters first and skims when short 
   assert.equal(roomy.summary.startHere.title, 'Learn: Weak major');
   assert.equal(roomy.summary.coveragePct, 100);
   const practice = roomy.tasks.find((t) => t.title === 'Practice: Weak major');
-  assert.equal(practice.dependsOn, roomy.tasks.find((t) => t.title === 'Learn: Weak major').id);
+  assert.deepEqual(practice.dependsOn, [roomy.tasks.find((t) => t.title === 'Learn: Weak major').id]);
 
   const tight = buildBattlePlan({ subject: 'Econ', examDate: '2026-10-25', chapters, capacityMinutes: 300 });
-  assert.ok(tight.summary.skimmed.length > 0);
+  // Short on time: something is skimmed or explicitly skipped, but never the high-value weak chapter.
+  assert.ok(tight.summary.skimmed.length + tight.summary.skipped.length > 0);
   assert.ok(!tight.summary.skimmed.includes('Weak major'));
+  assert.ok(!tight.summary.skipped.some((c) => c.name === 'Weak major'));
 });
 
 test('capacity helper reports free focus time before a date', () => {
@@ -156,4 +158,56 @@ test('capacity helper reports free focus time before a date', () => {
 test('low-mood context changes the coaching tone', () => {
   const c = buildTaskCoaching({ title: 'Essay', taskType: 'assignment' }, { minutes: 25, dayContext: { mood: 1 } });
   assert.ok(c.tips.some((t) => t.toLowerCase().includes('low mood')));
+});
+
+test('triage is optimal: matches brute force on small syllabi', async () => {
+  const { triageChapters } = await import('../src/services/battlePlanner.js');
+  const chapters = [
+    { total: 120, gainable: 20 },
+    { total: 90, gainable: 9 },
+    { total: 60, gainable: 12 },
+    { total: 150, gainable: 25 },
+    { total: 45, gainable: 3 },
+  ];
+  const opt = (c, mode) => ({
+    SKIP: [0, 0],
+    FULL: [Math.ceil(c.total / 5) * 5, c.gainable],
+    CORE: [Math.ceil((c.total * 0.45) / 5) * 5, c.gainable * 0.7],
+    SKIM: [20, c.gainable * 0.25],
+  })[mode];
+  for (const budget of [60, 150, 240, 400]) {
+    let bestBrute = 0;
+    const modesList = ['SKIP', 'FULL', 'CORE', 'SKIM'];
+    const rec = (i, time, gain) => {
+      if (time > budget) return;
+      if (i === chapters.length) { bestBrute = Math.max(bestBrute, gain); return; }
+      modesList.forEach((m) => { const [t, g] = opt(chapters[i], m); rec(i + 1, time + t, gain + g); });
+    };
+    rec(0, 0, 0);
+    const modes = triageChapters(chapters, budget);
+    const used = modes.reduce((a, m, i) => a + opt(chapters[i], m)[0], 0);
+    const gain = modes.reduce((a, m, i) => a + opt(chapters[i], m)[1], 0);
+    assert.ok(used <= budget, `over budget at ${budget}`);
+    assert.ok(Math.abs(gain - bestBrute) < 1e-6, `budget ${budget}: dp ${gain} vs brute ${bestBrute}`);
+  }
+});
+
+test('20 chapters in 3 days: picks high-yield chapters and gives permission to skip the rest', () => {
+  const chapters = Array.from({ length: 20 }, (_, i) => ({
+    name: `Chapter ${i + 1}`,
+    size: 'M',
+    knowledgeLevel: i % 4,
+    marks: [15, 4, 10, 2, 12][i % 5],
+    pastPaper: i % 3 === 0 ? 'often' : 'sometimes',
+  }));
+  const plan = buildBattlePlan({ subject: 'Economics', examDate: '2026-10-21', chapters, capacityMinutes: 3 * 240, today: new Date('2026-10-18T09:00:00') });
+  const s = plan.summary;
+  assert.ok(s.skipped.length >= 8, `skipped ${s.skipped.length}`);
+  assert.match(s.permission, /smart call/);
+  assert.ok(s.highYield.length > 0 && s.highYield.length <= 5);
+  assert.ok(plan.tasks.reduce((a, t) => a + t.estimatedMinutes, 0) <= 3 * 240 * 0.9 + 5);
+  // High-mark chapters are favoured over low-mark ones.
+  const skippedMarks = s.skipped.reduce((a, c) => a + c.marks, 0) / s.skipped.length;
+  assert.ok(skippedMarks < 10, `average skipped marks ${skippedMarks}`);
+  assert.ok(s.expectedMarks > s.securedNowMarks);
 });

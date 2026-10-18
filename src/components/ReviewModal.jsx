@@ -28,7 +28,7 @@ export function ReviewModal({ block, mode = 'NOT_DONE', actualMinutes, onClose, 
           <X size={18} />
         </button>
 
-        <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#ffffff', marginBottom: '0.35rem', letterSpacing: '-0.02em' }}>
+        <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--fg)', marginBottom: '0.35rem', letterSpacing: '-0.02em' }}>
           {isPartial ? 'Progress counts — how far did you get?' : 'No guilt. What got in the way?'}
         </h2>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '1.25rem' }}>
@@ -51,8 +51,8 @@ export function ReviewModal({ block, mode = 'NOT_DONE', actualMinutes, onClose, 
                       padding: '0.6rem',
                       borderRadius: 'var(--radius-sm)',
                       border: '1px solid var(--border-subtle)',
-                      background: progressPct === p ? '#ffffff' : 'var(--bg-card-subtle)',
-                      color: progressPct === p ? '#000000' : '#ffffff',
+                      background: progressPct === p ? 'var(--fg)' : 'var(--bg-card-subtle)',
+                      color: progressPct === p ? 'var(--fg-inverse)' : 'var(--fg)',
                       fontWeight: 800,
                       cursor: 'pointer',
                     }}
@@ -75,14 +75,14 @@ export function ReviewModal({ block, mode = 'NOT_DONE', actualMinutes, onClose, 
                   style={{
                     padding: '0.65rem 0.85rem',
                     borderRadius: 'var(--radius-sm)',
-                    background: isSelected ? '#ffffff' : 'var(--bg-card-subtle)',
-                    color: isSelected ? '#000000' : '#ffffff',
-                    border: isSelected ? '1px solid #ffffff' : '1px solid var(--border-subtle)',
+                    background: isSelected ? 'var(--fg)' : 'var(--bg-card-subtle)',
+                    color: isSelected ? 'var(--fg-inverse)' : 'var(--fg)',
+                    border: isSelected ? '1px solid var(--fg)' : '1px solid var(--border-subtle)',
                     cursor: 'pointer',
                   }}
                 >
                   <div style={{ fontSize: '0.84rem', fontWeight: 600 }}>{r.label}</div>
-                  <div style={{ fontSize: '0.72rem', color: isSelected ? '#3f3f46' : 'var(--text-muted)' }}>{r.adaptiveAction}</div>
+                  <div style={{ fontSize: '0.72rem', color: isSelected ? 'var(--fg-inverse-muted)' : 'var(--text-muted)' }}>{r.adaptiveAction}</div>
                 </div>
               );
             })}

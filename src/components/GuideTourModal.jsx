@@ -101,7 +101,7 @@ export function GuideTourModal({ isOpen, onClose, onNavigateTab, onOpenRoutineSe
                   width: idx === currentStepIdx ? '22px' : '8px',
                   height: '8px',
                   borderRadius: '9999px',
-                  background: idx === currentStepIdx ? '#ffffff' : 'var(--border-strong)',
+                  background: idx === currentStepIdx ? 'var(--fg)' : 'var(--border-strong)',
                   border: 'none',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
@@ -116,9 +116,9 @@ export function GuideTourModal({ isOpen, onClose, onNavigateTab, onOpenRoutineSe
         <div style={{ marginBottom: '2rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
             <div style={{ display: 'inline-flex', padding: '0.65rem', borderRadius: 'var(--radius-md)', background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)' }}>
-              <IconComponent size={22} color="#ffffff" />
+              <IconComponent size={22} color="currentColor" />
             </div>
-            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
+            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--fg)', letterSpacing: '-0.02em' }}>
               {currentStep.title}
             </h2>
           </div>
@@ -137,9 +137,9 @@ export function GuideTourModal({ isOpen, onClose, onNavigateTab, onOpenRoutineSe
             alignItems: 'flex-start',
             gap: '0.65rem'
           }}>
-            <Sparkles size={16} style={{ color: '#ffffff', flexShrink: 0, marginTop: '0.15rem' }} />
+            <Sparkles size={16} style={{ color: 'var(--fg)', flexShrink: 0, marginTop: '0.15rem' }} />
             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              <strong style={{ color: '#ffffff' }}>Why this works: </strong>
+              <strong style={{ color: 'var(--fg)' }}>Why this works: </strong>
               {currentStep.tip}
             </div>
           </div>

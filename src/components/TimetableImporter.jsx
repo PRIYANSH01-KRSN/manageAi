@@ -98,7 +98,7 @@ export function TimetableImporter({
     <div className="mono-card" style={{ marginBottom: '2.5rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.75rem', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '1rem' }}>
         <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--fg)', letterSpacing: '-0.02em' }}>
             Timetable & Schedule OCR
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.825rem', marginTop: '0.2rem' }}>
@@ -134,10 +134,10 @@ export function TimetableImporter({
         />
 
         <div style={{ display: 'inline-flex', padding: '0.75rem', borderRadius: '50%', border: '1px solid var(--border-strong)', marginBottom: '0.75rem' }}>
-          <Upload size={22} color="#ffffff" />
+          <Upload size={22} color="currentColor" />
         </div>
 
-        <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.25rem' }}>
+        <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--fg)', marginBottom: '0.25rem' }}>
           {isScanning ? 'Reading your timetable…' : 'Click or Drop Timetable Image Here'}
         </h3>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>
@@ -145,19 +145,19 @@ export function TimetableImporter({
         </p>
 
         {uploadDone && (
-          <div style={{ marginTop: '0.75rem', color: '#ffffff', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>
+          <div style={{ marginTop: '0.75rem', color: 'var(--fg)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>
             <Check size={14} /> Classes added — please double-check times below.
           </div>
         )}
         {scanError && (
-          <div style={{ marginTop: '0.75rem', color: '#fde68a', fontSize: '0.8rem' }}>{scanError}</div>
+          <div style={{ marginTop: '0.75rem', color: 'var(--warn-text)', fontSize: '0.8rem' }}>{scanError}</div>
         )}
       </div>
 
       {/* Manual Form */}
       {showManual && (
         <form onSubmit={handleManualSubmit} style={{ background: 'var(--bg-card-subtle)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-md)', padding: '1.25rem', marginBottom: '1.75rem' }}>
-          <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '1rem', color: '#ffffff' }}>Add Class / Event</h3>
+          <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '1rem', color: 'var(--fg)' }}>Add Class / Event</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.85rem', marginBottom: '1rem' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Title *</label>
@@ -184,7 +184,7 @@ export function TimetableImporter({
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-              <input type="checkbox" checked={allowGapStudy} onChange={(e) => setAllowGapStudy(e.target.checked)} style={{ accentColor: '#ffffff' }} />
+              <input type="checkbox" checked={allowGapStudy} onChange={(e) => setAllowGapStudy(e.target.checked)} style={{ accentColor: 'var(--fg)' }} />
               <span>Allow optional quick review in gap following this event</span>
             </label>
             <button type="submit" className="btn-primary">Save Event</button>
@@ -210,7 +210,7 @@ export function TimetableImporter({
             }}
           >
             <div>
-              <strong style={{ fontSize: '0.9rem', color: '#ffffff' }}>{ev.title}</strong>
+              <strong style={{ fontSize: '0.9rem', color: 'var(--fg)' }}>{ev.title}</strong>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
                 <span className="badge">{DAYS[ev.dayOfWeek]}</span>
                 <span>{ev.startTime} - {ev.endTime}</span>
@@ -226,7 +226,7 @@ export function TimetableImporter({
                   border: '1px solid var(--border-subtle)',
                   borderRadius: 'var(--radius-full)',
                   padding: '0.25rem 0.65rem',
-                  color: ev.allowGapStudy ? '#ffffff' : 'var(--text-muted)',
+                  color: ev.allowGapStudy ? 'var(--fg)' : 'var(--text-muted)',
                   fontSize: '0.72rem',
                   cursor: 'pointer',
                 }}

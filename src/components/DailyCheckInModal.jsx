@@ -36,8 +36,8 @@ function Scale({ value, onChange }) {
             height: '30px',
             borderRadius: 'var(--radius-sm)',
             border: '1px solid var(--border-subtle)',
-            background: value === n ? '#ffffff' : 'var(--bg-card-subtle)',
-            color: value === n ? '#000000' : 'var(--text-muted)',
+            background: value === n ? 'var(--fg)' : 'var(--bg-card-subtle)',
+            color: value === n ? 'var(--fg-inverse)' : 'var(--text-muted)',
             fontWeight: 700,
             cursor: 'pointer',
           }}
@@ -93,7 +93,7 @@ export function DailyCheckInModal({ isOpen, onClose, onSave, initial, showSuppor
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           <Sun size={13} /> 30-second morning check-in
         </div>
-        <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#ffffff', margin: '0.25rem 0 0.35rem' }}>How's today looking?</h2>
+        <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--fg)', margin: '0.25rem 0 0.35rem' }}>How's today looking?</h2>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '1.25rem' }}>
           Your answers reshape today's plan — busy time gets blocked, low-energy days get lighter. No wrong answers.
         </p>
@@ -101,7 +101,7 @@ export function DailyCheckInModal({ isOpen, onClose, onSave, initial, showSuppor
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.85rem', marginBottom: '1.25rem' }}>
           {SCALES.map((s) => (
             <div key={s.key}>
-              <div style={{ fontSize: '0.78rem', color: '#ffffff', fontWeight: 600, marginBottom: '0.3rem' }}>{s.label}</div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--fg)', fontWeight: 600, marginBottom: '0.3rem' }}>{s.label}</div>
               <Scale value={form[s.key]} onChange={(v) => set(s.key, v)} />
               <div style={{ display: 'flex', justifyContent: 'space-between', width: '186px', fontSize: '0.65rem', color: 'var(--text-faint)', marginTop: '0.15rem' }}>
                 <span>{s.low}</span>
@@ -123,7 +123,7 @@ export function DailyCheckInModal({ isOpen, onClose, onSave, initial, showSuppor
         {/* Commitments */}
         <div style={{ marginBottom: '1.25rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-            <div style={{ fontSize: '0.8rem', color: '#ffffff', fontWeight: 700 }}>Anything personal or busy today?</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--fg)', fontWeight: 700 }}>Anything personal or busy today?</div>
             <button type="button" className="btn-secondary" style={{ padding: '0.25rem 0.6rem', fontSize: '0.72rem' }} onClick={() => set('busyBlocks', [...form.busyBlocks, { title: '', startTime: '15:00', endTime: '16:00' }])}>
               <Plus size={12} /> Add
             </button>
@@ -143,7 +143,7 @@ export function DailyCheckInModal({ isOpen, onClose, onSave, initial, showSuppor
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.85rem', marginBottom: '1.25rem' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '0.78rem', color: '#ffffff', fontWeight: 600, marginBottom: '0.3rem' }}>Evening plans</label>
+            <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--fg)', fontWeight: 600, marginBottom: '0.3rem' }}>Evening plans</label>
             <select className="input-field" value={form.eveningPlan} onChange={(e) => set('eveningPlan', e.target.value)}>
               {EVENING.map((o) => (
                 <option key={o.id} value={o.id}>{o.label}</option>
@@ -151,7 +151,7 @@ export function DailyCheckInModal({ isOpen, onClose, onSave, initial, showSuppor
             </select>
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '0.78rem', color: '#ffffff', fontWeight: 600, marginBottom: '0.3rem' }}>
+            <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--fg)', fontWeight: 600, marginBottom: '0.3rem' }}>
               Max study today {form.availableMinutes === '' ? '(auto)' : `(${(form.availableMinutes / 60).toFixed(1)}h)`}
             </label>
             <select className="input-field" value={form.availableMinutes} onChange={(e) => set('availableMinutes', e.target.value === '' ? '' : Number(e.target.value))}>
@@ -163,7 +163,7 @@ export function DailyCheckInModal({ isOpen, onClose, onSave, initial, showSuppor
           </div>
         </div>
 
-        <div style={{ fontSize: '0.8rem', color: '#ffffff', fontWeight: 700, marginBottom: '0.4rem' }}>
+        <div style={{ fontSize: '0.8rem', color: 'var(--fg)', fontWeight: 700, marginBottom: '0.4rem' }}>
           Today's mode <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>(suggested: {MODES.find((m) => m.id === suggested)?.title})</span>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '1.5rem' }}>
@@ -179,14 +179,14 @@ export function DailyCheckInModal({ isOpen, onClose, onSave, initial, showSuppor
                 textAlign: 'left',
                 padding: '0.7rem',
                 borderRadius: 'var(--radius-md)',
-                background: mode === m.id ? '#ffffff' : 'var(--bg-card-subtle)',
-                color: mode === m.id ? '#000000' : '#ffffff',
+                background: mode === m.id ? 'var(--fg)' : 'var(--bg-card-subtle)',
+                color: mode === m.id ? 'var(--fg-inverse)' : 'var(--fg)',
                 border: '1px solid var(--border-subtle)',
                 cursor: 'pointer',
               }}
             >
               <div style={{ fontWeight: 800, fontSize: '0.85rem' }}>{m.title}</div>
-              <div style={{ fontSize: '0.68rem', color: mode === m.id ? '#3f3f46' : 'var(--text-muted)' }}>{m.desc}</div>
+              <div style={{ fontSize: '0.68rem', color: mode === m.id ? 'var(--fg-inverse-muted)' : 'var(--text-muted)' }}>{m.desc}</div>
             </button>
           ))}
         </div>

@@ -47,6 +47,8 @@ import { buildTaskCoaching } from './services/taskCoach';
 import { FocusMyEnergy } from './components/FocusMyEnergy';
 import { computeCalibration, calibrationRatioFor } from './services/estimationEngine';
 import { BreakdownWizard } from './components/BreakdownWizard';
+import { TodayScreen } from './components/TodayScreen';
+import { proposeOverloadTriage, applyOverloadTriage, daysAway } from './services/overloadTriage';
 import { processSessionReview } from './services/recalibrationService';
 import { INITIAL_USER_HABITS } from './constants/initialData';
 import { advanceStreak, currentStreakCount, downloadIcs, needsSupportNudge } from './utils/planUtils';
@@ -74,7 +76,24 @@ function usePersistentState(key, fallback) {
 }
 
 export function App() {
-  const [activeTab, setActiveTab] = useState('focus'); // focus, backlog, timeline, timetable, analytics, habits
+  const [activeTab, setActiveTab] = useState('today'); // today, timeline, backlog, focus, energy, timetable, analytics, habits
+  // Missed days since the last visit (computed once on load), for the guilt-free welcome back.
+  const [awayDays, setAwayDays] = useState(() => {
+    try {
+      return daysAway(JSON.parse(localStorage.getItem('cf_last_active') || 'null'), toDateKey(new Date()));
+    } catch {
+      return 0;
+    }
+  });
+  const [theme, setTheme] = useState(() => {
+    try {
+      const saved = localStorage.getItem('cf_theme');
+      if (saved === 'light' || saved === 'dark') return saved;
+      return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
   const [selectedDayIdx, setSelectedDayIdx] = useState(0);
   const [serverMode, setServerMode] = useState(null); // null (offline) | 'sqlite' | 'supabase'
   const [authUser, setAuthUser] = useState(null);
@@ -115,6 +134,25 @@ export function App() {
   const todayKey = toDateKey(now);
   const todayContext = dayContexts[todayKey] || null;
   const calibration = useMemo(() => computeCalibration(sessionLogs), [sessionLogs]);
+
+  // Remember today's visit (for the welcome-back message next time).
+  useEffect(() => {
+    try {
+      localStorage.setItem('cf_last_active', JSON.stringify(todayKey));
+    } catch {
+      // ignore
+    }
+  }, [todayKey]);
+
+  // Light / dark theme on <html data-theme>, remembered per device.
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try {
+      localStorage.setItem('cf_theme', theme);
+    } catch {
+      // ignore
+    }
+  }, [theme]);
 
   // Roll the plan forward every minute so missed sessions get re-planned automatically.
   useEffect(() => {
@@ -641,6 +679,22 @@ export function App() {
     ? stuckItems.filter((it) => !it.resolved && (it.taskId === currentActionBlock.taskId || (it.groupId && it.groupId === currentActionBlock.taskData?.groupId)))
     : [];
 
+  // Anti-fragile: if the remaining work no longer fits, propose the smallest cuts.
+  const triage = useMemo(() => proposeOverloadTriage(tasks, plan), [tasks, plan]);
+
+  const handleApplyTriage = async () => {
+    const next = applyOverloadTriage(tasks, triage.changes);
+    setTasks(next);
+    if (!backendOnline) return;
+    for (const c of triage.changes) {
+      if (c.action === 'skip') await deleteTaskApi(c.id).catch(console.error);
+      else {
+        const updated = next.find((t) => t.id === c.id);
+        if (updated) await createTaskApi(updated).catch(console.error);
+      }
+    }
+  };
+
   const handleSwapLighter = () => {
     if (!currentActionBlock) return;
     const nowMin = now.getHours() * 60 + now.getMinutes();
@@ -708,9 +762,35 @@ export function App() {
         userEmail={authUser?.email}
         onSignIn={() => setIsAuthOpen(true)}
         onSignOut={handleSignOut}
+        theme={theme}
+        onToggleTheme={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
       />
 
       <main className="main-content">
+        {activeTab === 'today' && (
+          <TodayScreen
+            plan={plan}
+            tasks={tasks}
+            currentBlock={currentActionBlock}
+            todayKey={todayKey}
+            daysAwayCount={awayDays}
+            triage={triage}
+            onStart={(block) => {
+              if (!block.id.startsWith('now-')) setPreferredSessionId(block.id);
+              setActiveTab('focus');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onDone={(block) => handleMarkDone(block)}
+            onEasier={handleSwapLighter}
+            onCantToday={() => handleSomethingCameUp('rest')}
+            onApplyTriage={handleApplyTriage}
+            onDismissWelcome={() => setAwayDays(0)}
+            onSeeFullPlan={() => setActiveTab('timeline')}
+            onBattlePlan={() => setIsBattlePlanOpen(true)}
+            onBreakDown={() => setBreakdownTask(null)}
+          />
+        )}
+
         {activeTab === 'focus' && (
           <div>
             <RoundCounterTimer

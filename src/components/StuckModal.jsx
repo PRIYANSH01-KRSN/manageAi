@@ -47,7 +47,7 @@ export function StuckModal({ block, onClose, onSave }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           <HelpCircle size={13} /> Stuck — that's normal
         </div>
-        <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#ffffff', margin: '0.3rem 0 0.9rem' }}>
+        <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--fg)', margin: '0.3rem 0 0.9rem' }}>
           What's blocking you{subtopic ? ` on ${subtopic}` : ''}?
         </h2>
 
@@ -61,8 +61,8 @@ export function StuckModal({ block, onClose, onSave }) {
                 padding: '0.6rem 0.8rem',
                 borderRadius: 'var(--radius-sm)',
                 border: '1px solid var(--border-subtle)',
-                background: kind === k.id ? '#ffffff' : 'var(--bg-card-subtle)',
-                color: kind === k.id ? '#000000' : '#ffffff',
+                background: kind === k.id ? 'var(--fg)' : 'var(--bg-card-subtle)',
+                color: kind === k.id ? 'var(--fg-inverse)' : 'var(--fg)',
                 cursor: 'pointer',
                 fontWeight: 600,
                 fontSize: '0.84rem',

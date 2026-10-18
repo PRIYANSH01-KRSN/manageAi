@@ -22,8 +22,8 @@ const pill = (active) => ({
   padding: '0.3rem 0.65rem',
   borderRadius: 'var(--radius-full)',
   border: '1px solid var(--border-subtle)',
-  background: active ? '#ffffff' : 'transparent',
-  color: active ? '#000000' : 'var(--text-muted)',
+  background: active ? 'var(--fg)' : 'transparent',
+  color: active ? 'var(--fg-inverse)' : 'var(--text-muted)',
   cursor: 'pointer',
   fontSize: '0.72rem',
   fontWeight: 600,
@@ -198,7 +198,7 @@ export function BreakdownWizard({ isOpen, onClose, initialTask, sessionStyle, le
 
         <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1.25rem' }}>
           {[1, 2, 3].map((s) => (
-            <div key={s} style={{ height: '4px', flex: 1, borderRadius: '9999px', background: s <= stage ? '#ffffff' : 'var(--border-subtle)' }} />
+            <div key={s} style={{ height: '4px', flex: 1, borderRadius: '9999px', background: s <= stage ? 'var(--fg)' : 'var(--border-subtle)' }} />
           ))}
         </div>
 
@@ -206,9 +206,9 @@ export function BreakdownWizard({ isOpen, onClose, initialTask, sessionStyle, le
         {stage === 1 && (
           <div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Step 1 of 3 · What are you covering?</div>
-            <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#ffffff', margin: '0.25rem 0 0.35rem' }}>Break it down into clear, timed steps</h2>
+            <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--fg)', margin: '0.25rem 0 0.35rem' }}>Break it down into clear, timed steps</h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '1.1rem' }}>
-              {initialTask ? <>Breaking down <strong style={{ color: '#ffffff' }}>"{initialTask.title}"</strong>. </> : null}
+              {initialTask ? <>Breaking down <strong style={{ color: 'var(--fg)' }}>"{initialTask.title}"</strong>. </> : null}
               List each {unitWord.toLowerCase()} and what's inside it. Time is worked out per subtopic — for you, not an average student.
             </p>
 
@@ -269,12 +269,12 @@ export function BreakdownWizard({ isOpen, onClose, initialTask, sessionStyle, le
               </button>
               <div style={{ display: 'flex', gap: '0.85rem', fontSize: '0.75rem', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                  <input type="checkbox" checked={buildsOnPrevious} onChange={(e) => setBuildsOnPrevious(e.target.checked)} style={{ accentColor: '#ffffff' }} />
+                  <input type="checkbox" checked={buildsOnPrevious} onChange={(e) => setBuildsOnPrevious(e.target.checked)} style={{ accentColor: 'var(--fg)' }} />
                   Each {unitWord.toLowerCase()} builds on the previous one
                 </label>
                 {kind === 'lectures' && (
                   <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                    <input type="checkbox" checked={hasSlides} onChange={(e) => setHasSlides(e.target.checked)} style={{ accentColor: '#ffffff' }} />
+                    <input type="checkbox" checked={hasSlides} onChange={(e) => setHasSlides(e.target.checked)} style={{ accentColor: 'var(--fg)' }} />
                     I have the slides
                   </label>
                 )}
@@ -302,13 +302,13 @@ export function BreakdownWizard({ isOpen, onClose, initialTask, sessionStyle, le
         {stage === 2 && (
           <div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Step 2 of 3 · Quick check (about 1 minute)</div>
-            <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#ffffff', margin: '0.25rem 0 0.35rem' }}>How well do you already know each part?</h2>
+            <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--fg)', margin: '0.25rem 0 0.35rem' }}>How well do you already know each part?</h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '1rem' }}>
               Answer honestly in your head — "Partly" and "No idea" just mean more time where you need it. Unanswered questions count as "not sure yet".
             </p>
 
             <div style={{ background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '0.85rem 1rem', marginBottom: '1rem' }}>
-              <div style={{ fontSize: '0.82rem', color: '#ffffff', fontWeight: 700, marginBottom: '0.45rem' }}>
+              <div style={{ fontSize: '0.82rem', color: 'var(--fg)', fontWeight: 700, marginBottom: '0.45rem' }}>
                 How quickly do you usually grasp new topics{subject.trim() ? ` in ${subject.trim()}` : ''}?
               </div>
               <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
@@ -326,7 +326,7 @@ export function BreakdownWizard({ isOpen, onClose, initialTask, sessionStyle, le
             {units.map((u, ui) => (
               <div key={ui} style={{ marginBottom: '1.1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem', flexWrap: 'wrap' }}>
-                  <strong style={{ color: '#ffffff', fontSize: '0.9rem' }}>{unitWord} {ui + 1}{u.title ? `: ${u.title}` : ''}</strong>
+                  <strong style={{ color: 'var(--fg)', fontSize: '0.9rem' }}>{unitWord} {ui + 1}{u.title ? `: ${u.title}` : ''}</strong>
                   <div style={{ display: 'flex', gap: '0.3rem' }}>
                     <button style={pill(false)} onClick={() => markUnit(ui, 'know')}>I know all of this</button>
                     <button style={pill(false)} onClick={() => markUnit(ui, 'no')}>All new to me</button>
@@ -335,7 +335,7 @@ export function BreakdownWizard({ isOpen, onClose, initialTask, sessionStyle, le
                 {u.subtopics.map((s, si) => (
                   <div key={s.name} style={{ background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '0.75rem 0.9rem', marginBottom: '0.5rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
-                      <span style={{ color: '#ffffff', fontWeight: 700, fontSize: '0.85rem' }}>{s.name}</span>
+                      <span style={{ color: 'var(--fg)', fontWeight: 700, fontSize: '0.85rem' }}>{s.name}</span>
                       <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
                         <span style={{ fontSize: '0.68rem', color: 'var(--text-faint)', marginRight: '0.2rem' }}>Looks</span>
                         {COMPLEXITY.map((c) => (
@@ -382,7 +382,7 @@ export function BreakdownWizard({ isOpen, onClose, initialTask, sessionStyle, le
         {stage === 3 && result && (
           <div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Step 3 of 3 · Your plan</div>
-            <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#ffffff', margin: '0.25rem 0 0.35rem' }}>
+            <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--fg)', margin: '0.25rem 0 0.35rem' }}>
               {(total / 60).toFixed(1)}h of focused work · {steps.length} steps
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '0.85rem' }}>
@@ -392,7 +392,7 @@ export function BreakdownWizard({ isOpen, onClose, initialTask, sessionStyle, le
             </p>
 
             {result.summary.startHere && (
-              <div style={{ display: 'flex', gap: '0.45rem', fontSize: '0.82rem', color: '#ffffff', marginBottom: '0.85rem' }}>
+              <div style={{ display: 'flex', gap: '0.45rem', fontSize: '0.82rem', color: 'var(--fg)', marginBottom: '0.85rem' }}>
                 <Flag size={14} style={{ flexShrink: 0, marginTop: '0.2rem' }} /> <span><strong>Start with:</strong> {steps[0]?.title}</span>
               </div>
             )}
@@ -402,7 +402,7 @@ export function BreakdownWizard({ isOpen, onClose, initialTask, sessionStyle, le
                 <div key={s.id} style={{ display: 'grid', gridTemplateColumns: '28px 1fr 74px 26px', gap: '0.5rem', alignItems: 'center', background: s.meta?.kind === 'learn' ? 'var(--bg-card-subtle)' : 'transparent', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '0.45rem 0.6rem' }}>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--text-faint)' }}>{idx + 1}</span>
                   <div>
-                    <div style={{ fontSize: '0.82rem', color: '#ffffff', fontWeight: 600 }}>{s.title}</div>
+                    <div style={{ fontSize: '0.82rem', color: 'var(--fg)', fontWeight: 600 }}>{s.title}</div>
                     {s.meta?.timeNote && <div style={{ fontSize: '0.7rem', color: 'var(--text-faint)' }}>{s.meta.timeNote}</div>}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
@@ -425,7 +425,7 @@ export function BreakdownWizard({ isOpen, onClose, initialTask, sessionStyle, le
             </div>
 
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '1rem', lineHeight: 1.5 }}>
-              Got stuck while studying? Use <strong style={{ color: '#ffffff' }}>"I'm stuck"</strong> on the focus screen — your stuck points become the agenda of each summary step.
+              Got stuck while studying? Use <strong style={{ color: 'var(--fg)' }}>"I'm stuck"</strong> on the focus screen — your stuck points become the agenda of each summary step.
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border-subtle)', paddingTop: '1rem' }}>

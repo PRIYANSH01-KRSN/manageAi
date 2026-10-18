@@ -62,7 +62,7 @@ export function AuthModal({ isOpen, onClose }) {
           <X size={18} />
         </button>
 
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', marginBottom: '0.35rem' }}>{titles[mode]}</h2>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--fg)', marginBottom: '0.35rem' }}>{titles[mode]}</h2>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '1.25rem' }}>
           Your tasks, check-ins and progress are saved to your account and follow you to any device. Only you can see them.
         </p>
@@ -91,7 +91,7 @@ export function AuthModal({ isOpen, onClose }) {
             />
           )}
           {message.text && (
-            <div style={{ fontSize: '0.78rem', color: message.type === 'error' ? '#fca5a5' : 'var(--text-secondary)' }}>{message.text}</div>
+            <div style={{ fontSize: '0.78rem', color: message.type === 'error' ? 'var(--danger-text)' : 'var(--text-secondary)' }}>{message.text}</div>
           )}
           <button type="submit" className="btn-primary" disabled={busy} id="auth-submit-btn">
             {mode === 'reset' ? <Mail size={14} /> : <LogIn size={14} />}
@@ -102,11 +102,11 @@ export function AuthModal({ isOpen, onClose }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem', fontSize: '0.75rem' }}>
           {mode === 'signin' ? (
             <>
-              <button type="button" onClick={() => setMode('signup')} style={{ background: 'none', border: 'none', color: '#ffffff', textDecoration: 'underline', cursor: 'pointer' }}>Create an account</button>
+              <button type="button" onClick={() => setMode('signup')} style={{ background: 'none', border: 'none', color: 'var(--fg)', textDecoration: 'underline', cursor: 'pointer' }}>Create an account</button>
               <button type="button" onClick={() => setMode('reset')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', textDecoration: 'underline', cursor: 'pointer' }}>Forgot password?</button>
             </>
           ) : (
-            <button type="button" onClick={() => setMode('signin')} style={{ background: 'none', border: 'none', color: '#ffffff', textDecoration: 'underline', cursor: 'pointer' }}>Back to sign in</button>
+            <button type="button" onClick={() => setMode('signin')} style={{ background: 'none', border: 'none', color: 'var(--fg)', textDecoration: 'underline', cursor: 'pointer' }}>Back to sign in</button>
           )}
         </div>
         <div style={{ fontSize: '0.7rem', color: 'var(--text-faint)', marginTop: '1rem' }}>

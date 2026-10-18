@@ -86,10 +86,10 @@ export function RoundCounterTimer({
       <div className="mono-card" style={{ padding: '2.5rem', marginBottom: '2rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '1.25rem', marginBottom: '1.5rem' }}>
           <div>
-            <div style={{ fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#ffffff', marginBottom: '0.25rem' }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--fg)', marginBottom: '0.25rem' }}>
               {mission && mission.sessionCount === 0 && mission.focusMinutes === 0 ? 'Nothing left for today' : 'Getting started'}
             </div>
-            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
+            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--fg)', letterSpacing: '-0.02em' }}>
               No session is waiting right now
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.35rem', maxWidth: '620px' }}>
@@ -111,7 +111,7 @@ export function RoundCounterTimer({
             <div key={c.title} style={{ ...card, padding: '1.15rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
               <div>
                 <c.icon size={16} color="var(--text-muted)" />
-                <strong style={{ display: 'block', fontSize: '0.9rem', color: '#ffffff', margin: '0.4rem 0 0.3rem' }}>{c.title}</strong>
+                <strong style={{ display: 'block', fontSize: '0.9rem', color: 'var(--fg)', margin: '0.4rem 0 0.3rem' }}>{c.title}</strong>
                 <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>{c.text}</p>
               </div>
               <button onClick={c.action} className={c.primary ? 'btn-primary' : 'btn-secondary'} style={{ marginTop: '1rem', width: '100%', fontSize: '0.78rem' }}>
@@ -194,10 +194,10 @@ export function RoundCounterTimer({
       {mission && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
           <span>
-            Today: <strong style={{ color: '#ffffff' }}>{mission.sessionCount} sessions</strong> · {(mission.focusMinutes / 60).toFixed(1)}h focus
+            Today: <strong style={{ color: 'var(--fg)' }}>{mission.sessionCount} sessions</strong> · {(mission.focusMinutes / 60).toFixed(1)}h focus
             {mission.mustDoCount > 0 && <> · {mission.mustDoCount} must-do</>}
             {mission.endsAt && <> · done by ~{mission.endsAt}</>}
-            {MODE_LABEL[mission.mode] && <> · <strong style={{ color: '#ffffff' }}>{MODE_LABEL[mission.mode]}</strong></>}
+            {MODE_LABEL[mission.mode] && <> · <strong style={{ color: 'var(--fg)' }}>{MODE_LABEL[mission.mode]}</strong></>}
             {mission.planVariant !== 'A' && <> · Plan {mission.planVariant}</>}
           </span>
           {onOpenCheckIn && (
@@ -223,7 +223,7 @@ export function RoundCounterTimer({
         </div>
       </div>
 
-      <h2 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em', lineHeight: 1.25, marginBottom: '1rem' }}>
+      <h2 style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--fg)', letterSpacing: '-0.02em', lineHeight: 1.25, marginBottom: '1rem' }}>
         {currentBlock.taskTitle}
       </h2>
 
@@ -231,7 +231,7 @@ export function RoundCounterTimer({
       <div style={{ ...card, border: '1px solid var(--border-strong)', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: '240px' }}>
           <SectionTitle icon={Flag}>{ladderIdx === 0 ? 'Your first 2 minutes' : `Smaller start · ${ladder[ladderIdx]?.minutes} min`}</SectionTitle>
-          <div style={{ fontSize: '0.95rem', color: '#ffffff', lineHeight: 1.5 }}>
+          <div style={{ fontSize: '0.95rem', color: 'var(--fg)', lineHeight: 1.5 }}>
             {ladderIdx === 0 ? (ai?.starter || coaching?.starter) : ladder[ladderIdx]?.text}
           </div>
         </div>
@@ -251,7 +251,7 @@ export function RoundCounterTimer({
               <circle className="round-counter-progress" cx="95" cy="95" r={radius} style={{ strokeDasharray: circumference, strokeDashoffset: isNaN(strokeDashoffset) ? circumference : strokeDashoffset }} />
             </svg>
             <div className="round-counter-content">
-              <div style={{ fontSize: '2.4rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: '#ffffff', letterSpacing: '-0.02em', lineHeight: 1 }}>
+              <div style={{ fontSize: '2.4rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--fg)', letterSpacing: '-0.02em', lineHeight: 1 }}>
                 {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
               </div>
               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '0.35rem' }}>
@@ -263,7 +263,7 @@ export function RoundCounterTimer({
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1.25rem', flexWrap: 'wrap', justifyContent: 'center' }}>
             {!finished ? (
               <button className="btn-primary" onClick={() => setIsActive(!isActive)} id="round-timer-toggle-btn">
-                {isActive ? <><Pause size={16} /> Pause</> : <><Play size={16} fill="black" /> {elapsedSec > 0 ? 'Resume' : 'Start'}</>}
+                {isActive ? <><Pause size={16} /> Pause</> : <><Play size={16} fill="currentColor" /> {elapsedSec > 0 ? 'Resume' : 'Start'}</>}
               </button>
             ) : (
               <button className="btn-secondary" onClick={() => { setSecondsLeft(10 * 60); setIsActive(true); }}>
@@ -304,9 +304,9 @@ export function RoundCounterTimer({
                 key={s.id}
                 onClick={() => setSoundType(s.id)}
                 style={{
-                  background: soundType === s.id ? '#ffffff' : 'transparent',
-                  color: soundType === s.id ? '#000000' : 'var(--text-muted)',
-                  border: soundType === s.id ? '1px solid #ffffff' : '1px solid var(--border-subtle)',
+                  background: soundType === s.id ? 'var(--fg)' : 'transparent',
+                  color: soundType === s.id ? 'var(--fg-inverse)' : 'var(--text-muted)',
+                  border: soundType === s.id ? '1px solid var(--fg)' : '1px solid var(--border-subtle)',
                   borderRadius: 'var(--radius-full)',
                   padding: '0.2rem 0.55rem',
                   fontSize: '0.72rem',
@@ -327,7 +327,7 @@ export function RoundCounterTimer({
               </SectionTitle>
               {stuckItems.map((it) => (
                 <label key={it.id} style={{ display: 'flex', gap: '0.45rem', alignItems: 'flex-start', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', cursor: 'pointer' }}>
-                  <input type="checkbox" onChange={() => onResolveStuck(it.id)} style={{ accentColor: '#ffffff', marginTop: '0.2rem' }} />
+                  <input type="checkbox" onChange={() => onResolveStuck(it.id)} style={{ accentColor: 'var(--fg)', marginTop: '0.2rem' }} />
                   <span>{it.note}{it.taskTitle ? <span style={{ color: 'var(--text-faint)' }}> — {it.taskTitle}</span> : null}</span>
                 </label>
               ))}
@@ -361,7 +361,7 @@ export function RoundCounterTimer({
         {/* How to do it */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
-            <strong style={{ fontSize: '0.9rem', color: '#ffffff' }}>How to do this session</strong>
+            <strong style={{ fontSize: '0.9rem', color: 'var(--fg)' }}>How to do this session</strong>
             <div style={{ display: 'flex', gap: '0.4rem' }}>
               {onRequestAITaskCoach && (
                 <button className="btn-secondary" style={{ padding: '0.25rem 0.6rem', fontSize: '0.72rem' }} onClick={handleAI} disabled={aiLoading}>
@@ -383,7 +383,7 @@ export function RoundCounterTimer({
                 const active = (isActive || elapsedSec > 0) && idx === activeStep;
                 const done = elapsedMin >= st.to;
                 return (
-                  <div key={idx} style={{ display: 'flex', gap: '0.6rem', alignItems: 'baseline', padding: '0.35rem 0.5rem', borderRadius: 'var(--radius-sm)', background: active ? '#ffffff' : 'transparent', color: active ? '#000000' : done ? 'var(--text-faint)' : 'var(--text-secondary)', fontSize: '0.83rem' }}>
+                  <div key={idx} style={{ display: 'flex', gap: '0.6rem', alignItems: 'baseline', padding: '0.35rem 0.5rem', borderRadius: 'var(--radius-sm)', background: active ? 'var(--fg)' : 'transparent', color: active ? 'var(--fg-inverse)' : done ? 'var(--text-faint)' : 'var(--text-secondary)', fontSize: '0.83rem' }}>
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', minWidth: '58px', fontWeight: 700 }}>
                       {Math.round(st.from)}–{Math.round(st.to)}m
                     </span>
@@ -413,7 +413,7 @@ export function RoundCounterTimer({
 
               <div style={card}>
                 <SectionTitle icon={CheckCircle2}>You're done when…</SectionTitle>
-                <div style={{ fontSize: '0.82rem', color: '#ffffff' }}>{ai?.doneCheck || coaching?.doneCheck}</div>
+                <div style={{ fontSize: '0.82rem', color: 'var(--fg)' }}>{ai?.doneCheck || coaching?.doneCheck}</div>
                 {currentBlock.taskData?.materials?.length > 0 && (
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}>Open first: {currentBlock.taskData.materials.join(' • ')}</div>
                 )}

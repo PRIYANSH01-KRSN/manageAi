@@ -1,26 +1,85 @@
-/* ChronosFlow - Pure Minimalist Black & White Design System */
-:root {
+/* ChronosFlow — high-contrast black & white design system with light and dark themes.
+   All colours are tokens; components use var(--fg) / var(--fg-inverse) etc. so both
+   themes stay readable (body text ≥ 7:1, small/secondary text ≥ 4.5:1). */
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
   --bg-main: #000000;
-  --bg-card: #0d0d0f;
-  --bg-card-subtle: #141417;
-  --bg-elevated: #1a1a1e;
-  
-  --border-subtle: #222226;
-  --border-strong: #333338;
-  --border-active: #ffffff;
+  --bg-card: #0f0f12;
+  --bg-card-subtle: #18181c;
+  --bg-elevated: #1f1f24;
+
+  --border-subtle: #2e2e35;
+  --border-strong: #4a4a53;
+
+  --fg: #ffffff;               /* primary text, active pill background, focus rings */
+  --fg-inverse: #000000;       /* text on top of --fg (active pills, primary buttons) */
+  --fg-inverse-muted: #3f3f46; /* secondary text on top of --fg */
 
   --text-primary: #ffffff;
-  --text-secondary: #a1a1aa;
-  --text-muted: #71717a;
-  --text-faint: #52525b;
+  --text-secondary: #e4e4e7;   /* 16:1 on black */
+  --text-muted: #b4b4bd;       /* 10:1 */
+  --text-faint: #9d9da8;       /* 7.5:1 */
 
-  --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --success: #4ade80;
+  --success-bg: rgba(74, 222, 128, 0.1);
+  --success-border: rgba(74, 222, 128, 0.4);
+  --warn: #fbbf24;
+  --warn-text: #fde68a;
+  --danger: #f87171;
+  --danger-text: #fca5a5;
+
+  --header-bg: rgba(0, 0, 0, 0.92);
+  --overlay: rgba(0, 0, 0, 0.8);
+  --primary-hover: #d4d4d8;
+  --scroll-thumb: #3f3f46;
+
+  --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
   --radius-sm: 6px;
   --radius-md: 12px;
   --radius-lg: 18px;
   --radius-full: 9999px;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --bg-main: #f2f2f3;
+  --bg-card: #ffffff;
+  --bg-card-subtle: #f4f4f5;
+  --bg-elevated: #ffffff;
+
+  --border-subtle: #d4d4d8;
+  --border-strong: #8e8e98;
+
+  --fg: #09090b;
+  --fg-inverse: #ffffff;
+  --fg-inverse-muted: #d4d4d8;
+
+  --text-primary: #09090b;
+  --text-secondary: #27272a;   /* 14:1 on white */
+  --text-muted: #3f3f46;       /* 10:1 */
+  --text-faint: #52525b;       /* 7.7:1 */
+
+  --success: #15803d;
+  --success-bg: rgba(21, 128, 61, 0.08);
+  --success-border: rgba(21, 128, 61, 0.4);
+  --warn: #b45309;
+  --warn-text: #92400e;
+  --danger: #b91c1c;
+  --danger-text: #991b1b;
+
+  --header-bg: rgba(255, 255, 255, 0.94);
+  --overlay: rgba(9, 9, 11, 0.45);
+  --primary-hover: #27272a;
+  --scroll-thumb: #a1a1aa;
+}
+
+html {
+  font-size: 17px; /* slightly larger base for readability */
 }
 
 * {
@@ -33,12 +92,19 @@ body {
   background-color: var(--bg-main);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  line-height: 1.5;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Minimalist Clean Panels */
+/* Visible keyboard focus everywhere */
+:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+}
+
+/* Clean Panels */
 .mono-card {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
@@ -51,18 +117,20 @@ body {
   border-color: var(--border-strong);
 }
 
-/* Minimalist Header */
+/* Header */
 .app-header {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(0, 0, 0, 0.9);
+  background: var(--header-bg);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border-subtle);
   padding: 0.85rem 2rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .brand-wrapper {
@@ -75,7 +143,7 @@ body {
   font-size: 1.15rem;
   font-weight: 800;
   letter-spacing: -0.03em;
-  color: #ffffff;
+  color: var(--fg);
   text-transform: uppercase;
 }
 
@@ -83,9 +151,9 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 500;
-  color: #a1a1aa;
+  color: var(--text-secondary);
   background: var(--bg-card-subtle);
   border: 1px solid var(--border-subtle);
   padding: 0.2rem 0.55rem;
@@ -96,15 +164,16 @@ body {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #ffffff;
+  background: var(--fg);
 }
 
-/* Nav Tabs - Clean Monochromatic Pills */
+/* Nav Tabs */
 .nav-tab-container {
   display: flex;
+  flex-wrap: wrap;
   background: var(--bg-card-subtle);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-lg);
   padding: 0.2rem;
   gap: 0.2rem;
 }
@@ -118,7 +187,7 @@ body {
   border: none;
   background: transparent;
   color: var(--text-muted);
-  font-size: 0.825rem;
+  font-size: 0.85rem;
   font-weight: 600;
   font-family: var(--font-sans);
   cursor: pointer;
@@ -130,8 +199,8 @@ body {
 }
 
 .nav-tab-btn.active {
-  background: #ffffff;
-  color: #000000;
+  background: var(--fg);
+  color: var(--fg-inverse);
 }
 
 /* Actions & Streak */
@@ -145,18 +214,19 @@ body {
   border-radius: var(--radius-full);
   font-size: 0.8rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--fg);
 }
 
-/* Buttons - Black & White High Contrast */
+/* Buttons */
 .btn-primary {
-  background: #ffffff;
-  color: #000000;
-  border: 1px solid #ffffff;
+  background: var(--fg);
+  color: var(--fg-inverse);
+  border: 1px solid var(--fg);
   border-radius: var(--radius-full);
   padding: 0.55rem 1.25rem;
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
+  font-family: var(--font-sans);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -166,8 +236,14 @@ body {
 }
 
 .btn-primary:hover {
-  background: #e4e4e7;
-  border-color: #e4e4e7;
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.btn-primary:disabled,
+.btn-secondary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .btn-secondary {
@@ -177,7 +253,8 @@ body {
   border-radius: var(--radius-full);
   padding: 0.55rem 1.15rem;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
+  font-family: var(--font-sans);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -187,18 +264,19 @@ body {
 }
 
 .btn-secondary:hover {
-  border-color: #ffffff;
+  border-color: var(--fg);
   background: var(--bg-card-subtle);
 }
 
 .btn-danger {
   background: transparent;
-  color: #a1a1aa;
-  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-full);
   padding: 0.55rem 1.15rem;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
+  font-family: var(--font-sans);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -207,16 +285,16 @@ body {
 }
 
 .btn-danger:hover {
-  color: #ffffff;
-  border-color: var(--border-strong);
+  color: var(--fg);
+  border-color: var(--fg);
   background: var(--bg-card-subtle);
 }
 
 .icon-btn {
   background: transparent;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-full);
-  color: var(--text-muted);
+  color: var(--text-secondary);
   width: 36px;
   height: 36px;
   display: flex;
@@ -228,30 +306,30 @@ body {
 
 .icon-btn:hover {
   color: var(--text-primary);
-  border-color: #ffffff;
+  border-color: var(--fg);
 }
 
-/* Badges - Monochrome pills */
+/* Badges */
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
   padding: 0.2rem 0.6rem;
   border-radius: var(--radius-full);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 600;
   background: var(--bg-card-subtle);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-strong);
   color: var(--text-secondary);
 }
 
 .badge-highlight {
-  background: #ffffff;
-  color: #000000;
-  border: 1px solid #ffffff;
+  background: var(--fg);
+  color: var(--fg-inverse);
+  border: 1px solid var(--fg);
 }
 
-/* Round Progress Ring & Counter Container */
+/* Round progress ring */
 .round-counter-box {
   display: flex;
   flex-direction: column;
@@ -277,7 +355,7 @@ body {
 
 .round-counter-progress {
   fill: none;
-  stroke: #ffffff;
+  stroke: var(--fg);
   stroke-width: 5;
   stroke-linecap: round;
   transition: stroke-dashoffset 0.5s ease;
@@ -292,7 +370,7 @@ body {
   justify-content: center;
 }
 
-/* Main Container */
+/* Main container */
 .main-content {
   max-width: 1200px;
   margin: 0 auto;
@@ -303,25 +381,29 @@ body {
 .input-field {
   width: 100%;
   background: var(--bg-card-subtle);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   padding: 0.65rem 0.85rem;
   font-family: var(--font-sans);
-  font-size: 0.875rem;
+  font-size: 0.9rem;
   transition: border-color 0.15s ease;
+}
+
+.input-field::placeholder {
+  color: var(--text-faint);
 }
 
 .input-field:focus {
   outline: none;
-  border-color: #ffffff;
+  border-color: var(--fg);
 }
 
 /* Modals */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.85);
+  background: var(--overlay);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -331,7 +413,7 @@ body {
 }
 
 .modal-container {
-  background: #0d0d0f;
+  background: var(--bg-card);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
   width: 100%;
@@ -343,16 +425,26 @@ body {
 
 /* Scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #000000;
+  background: var(--bg-main);
 }
 ::-webkit-scrollbar-thumb {
-  background: #27272a;
+  background: var(--scroll-thumb);
   border-radius: 9999px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+
+/* Phones: 16px side gutter, no sideways scroll */
+@media (max-width: 640px) {
+  .app-header {
+    padding: 0.75rem 1rem;
+  }
+  .main-content {
+    padding: 1.25rem 1rem;
+  }
+  .mono-card {
+    padding: 1.15rem;
+  }
 }
